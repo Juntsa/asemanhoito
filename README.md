@@ -11,7 +11,8 @@ Asemanhoidon tarkastuskäynti puhelimella. Käyttäjinä Luotean kiinteistönhoi
 - Uusi käynti tuo edellisen käynnin avoimet poikkeamat: Korjattu / Ennallaan / Pahentunut.
 - Tarkastuskohdat: Kunnossa / Poikkeama / Korjattu paikalla. Tyhjä tarkoittaa, ettei kohtaa tarkastettu.
 - Osiot näytetään vuodenajan mukaan. Muiden vuodenaikojen osiot saa auki käsin.
-- 🎤-sanelu kaikkiin tekstikenttiin, kuvat kohtaan liitettynä, käyntimuistio.
+- 📷 ja 🎤 jokaisen kohdan rivillä, käyntimuistio.
+- Vertailukuvat: avoimen poikkeaman kuvat säilyvät seuraavaan käyntiin ja näkyvät rinnakkain uuden kuvan kanssa (261110.2).
 - 📤 Lähetä käynti: JSON-tiedosto (käynti ja kuvat) puhelimen jakovalikolla. Sama tiedosto avautuu toisella puhelimella (*Avaa käynti tiedostosta*).
 
 ## Tiedot

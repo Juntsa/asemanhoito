@@ -25,6 +25,11 @@
   Julkinen repo: asemalistaa, osoitteita tai sopimustietoja EI kirjoiteta koodiin. Asemat lisätään puhelimessa
   tai tuodaan erillisestä tiedostosta (JSON tai CSV).
   (261110.1) Build 1: alusta. Tarkastuskohdat (OSIOT) ovat LUONNOS, korvataan Juntsan selvittämillä kohteilla.
+  (261110.2) Build 2: kuva ja sanelu näkyvät jokaisen kohdan rivillä (ennen vasta Poikkeama-valinnan jälkeen).
+             Kohdan kuvat näkyvät pikkukuvina kohdan alla. Kuvan voi siirtää toiseen kohtaan kuvaa napauttamalla.
+             Vertailukuvat: avoimen poikkeaman kuvat säilyvät puhelimessa käynnin jälkeen (alkuperäinen + viimeisin)
+             ja näkyvät seuraavalla käynnillä rinnakkain uuden kuvan kanssa. Lähetys sisältää vertailukuvat (historia: true),
+             ja Avaa käynti tiedostosta tuo ne sijaisen puhelimeen.
 -->
 <style>
 :root{--havu:#0F4B4B;--havu-dk:#093838;--kalkki:#E6DCD2;--kalkki-lt:#F5F0EA;--kalkki-md:#EFE7DD;--luumu:#371E30;--hiili:#1F1F1F;
@@ -83,7 +88,18 @@ details[open]>summary .nuoli{transform:rotate(90deg)}
 .sis{padding:12px 14px 14px}
 .kohta{padding:10px 0;border-top:1px solid var(--kalkki)}
 .kohta:first-child{border-top:none;padding-top:0}
-.kohta .nm{font-weight:600;margin-bottom:6px}
+.kohta .nm{font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.kohta .nm .nt{flex:1;min-width:0}
+.kohta .nm button.ik{flex:0 0 48px;width:48px;height:48px;min-height:48px;padding:0;font-size:20px;background:#fff;border:1px solid var(--havu);color:var(--havu)}
+.kt{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kt:empty{display:none}
+.kt img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--raja);cursor:pointer;display:block}
+.kt .vl{font-size:12px;color:var(--mut);width:100%;margin-top:2px}
+.vert{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.vert>div{min-width:0}
+.vert .ots{font-size:12px;font-weight:700;color:var(--mut);margin-bottom:4px}
+.vert img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid var(--raja);cursor:pointer;display:block;margin-bottom:4px}
+.vert .tyhja{font-size:12px;color:var(--mut);border:1px dashed var(--raja);border-radius:8px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px}
 .kohta .nm .kk{font-weight:600;font-size:12px;color:var(--mut);margin-left:6px}
 .tilat{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .tilat button{background:#fff;border:1px solid var(--raja);color:var(--hiili);font-weight:650;font-size:15px;padding:6px 4px}
@@ -135,7 +151,7 @@ dialog img{width:100%;border-radius:10px;max-height:55vh;object-fit:contain;back
 <header>
   <div><h1>Asemakierto</h1><div class="ala">Luotea · asemanhoidon tarkastuskäynti</div></div>
   <a class="ohje" href="ohje.html">Ohje</a>
-  <div class="build">build 261110.1<div id="tallennettu"></div><div id="verkko"></div></div>
+  <div class="build">build 261110.2<div id="tallennettu"></div><div id="verkko"></div></div>
 </header>
 
 <main>
@@ -185,7 +201,7 @@ dialog img{width:100%;border-radius:10px;max-height:55vh;object-fit:contain;back
 <script>
 (() => {
 'use strict';
-const BUILD = '261110.1', SCHEMA = 1, TYOKALU = 'LuoteaAsemakierto', AVAIN = 'luotea_asemakierto_v1';
+const BUILD = '261110.2', SCHEMA = 1, TYOKALU = 'LuoteaAsemakierto', AVAIN = 'luotea_asemakierto_v1';
 // Lähetyksen vastaanottaja (jaettu postilaatikko). Tyhjä = ei näytetä. Osoite ei ole salainen, joten se voi olla koodissa.
 const VASTAANOTTAJA = '';
 
@@ -288,6 +304,7 @@ const idb = new Promise(res => { try { const r = indexedDB.open('luotea_asemakie
   r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch (e) { res(null); } });
 const tx = (mode, f) => idb.then(d => new Promise((ok, ei) => { const t = d.transaction('kuvat', mode); f(t.objectStore('kuvat')); t.oncomplete = () => ok(); t.onerror = () => ei(t.error); }));
 async function kaikkiKuvat() { const d = await idb; if (!d) return muistiKuvat.slice(); return new Promise(ok => { const r = d.transaction('kuvat').objectStore('kuvat').getAll(); r.onsuccess = () => ok(r.result || []); r.onerror = () => ok([]); }); }
+async function asemanVertailukuvat(asemaId) { return (await kaikkiKuvat()).filter(x => x.historia && x.asemaId === asemaId).sort((a, b) => a.aika - b.aika); }
 async function kaynninKuvat() { const k = K(); if (!k) return []; return (await kaikkiKuvat()).filter(x => x.kayntiId === k.id).sort((a, b) => a.aika - b.aika); }
 async function talletaKuva(x) { const d = await idb; if (!d) { muistiKuvat = muistiKuvat.filter(y => y.id !== x.id).concat(x); return; } await tx('readwrite', s => s.put(x)); }
 async function poistaKuva(id) { const d = await idb; if (!d) { muistiKuvat = muistiKuvat.filter(y => y.id !== id); return; } await tx('readwrite', s => s.delete(id)); }
@@ -300,10 +317,10 @@ function pienenna(file) {
     im.onerror = () => { URL.revokeObjectURL(url); ei(new Error('Kuvaa ei voitu lukea')); }; im.src = url; });
 }
 let kuvaKohde = 'muu';
-const kuvaSelite = key => key === 'muu' ? 'Muu' : key.startsWith('osio:') ? ((OSIOT.find(o => 'osio:' + o.id === key) || {}).nimi || 'Muu') : ((KOHTA[key] || (K() && K().kohdat[key]) || {}).nimi || 'Muu');
+const kuvaSelite = key => key === 'muu' ? 'Muu' : key.startsWith('osio:') ? ((OSIOT.find(o => 'osio:' + o.id === key) || {}).nimi || 'Muu') : ((KOHTA[key] || (K() && (K().kohdat[key] || K().aiemmat.find(a => a.key === key))) || {}).nimi || 'Muu');
 async function lisaaKuvat(files) {
   const k = K(); if (!k) return; let vir = 0;
-  for (const f of files) { try { await talletaKuva({ id: uid(), kayntiId: k.id, kohta: kuvaKohde, selite: kuvaSelite(kuvaKohde), teksti: '', data: await pienenna(f), aika: Date.now() }); } catch (e) { vir++; } }
+  for (const f of files) { try { await talletaKuva({ id: uid(), kayntiId: k.id, asemaId: k.asemaId, pvm: k.pvm, kohta: kuvaKohde, selite: kuvaSelite(kuvaKohde), teksti: '', data: await pienenna(f), aika: Date.now() }); } catch (e) { vir++; } }
   tallenna(); await renderKuvat(); paivitaKuvaMaarat();
   if (vir) dialogi('Kuvaa ei saatu talteen', `${vir} kuvaa jäi lisäämättä. Kokeile ottaa kuva uudelleen.`, ['OK']);
 }
@@ -356,14 +373,15 @@ function renderAsemat() {
 const tilaLaskuri = o => { const k = K(); let t = 0, p = 0; o.kohdat.forEach(x => { const v = k.kohdat[x.key]; if (v && v.tila) { t++; if (v.tila === 'poikkeama') p++; } }); return { t, p, n: o.kohdat.length }; };
 const mic = p => SANELU_OK ? `<button type="button" class="mic" data-mic="${esc(p)}" title="Sanele" aria-label="Sanele" aria-pressed="false">🎤</button>` : '';
 const ta = (p, v, ph, rivit, cls) => `<div class="sanelu"><textarea data-k="${esc(p)}" rows="${rivit || 2}"${cls ? ` class="${cls}"` : ''} placeholder="${esc(ph || '')}">${esc(v)}</textarea>${mic(p)}<div class="vali" data-vali="${esc(p)}"></div></div>`;
+// Kohdan rivin kuva- ja sanelunapit: näkyvät aina. Sanelu avaa lisätietokentän.
+const ikonit = (key, polku) => `<button type="button" class="ik" data-kuva="${esc(key)}" title="Ota kuva" aria-label="Ota kuva kohtaan">📷</button>${SANELU_OK ? `<button type="button" class="ik mic" data-mic="${esc(polku)}" data-avaa="${esc(key)}" title="Sanele" aria-label="Sanele" aria-pressed="false">🎤</button>` : ''}`;
 function kohtaHtml(x) {
   const v = K().kohdat[x.key] || { tila: '', huom: '' };
-  return `<div class="kohta" data-kohta="${x.key}"><div class="nm">${esc(x.nimi)}<span class="kk" data-kk="${x.key}"></span></div>
+  return `<div class="kohta" data-kohta="${x.key}"><div class="nm"><span class="nt">${esc(x.nimi)}<span class="kk" data-kk="${x.key}"></span></span>${ikonit(x.key, `kohdat.${x.key}.huom`)}</div>
     <div class="tilat" role="group" aria-label="${esc(x.nimi)}">${Object.entries(TILA_NIMI).map(([t, n]) => `<button type="button" data-t="${t}" data-key="${x.key}" class="${v.tila === t ? 'on' : ''}" aria-pressed="${v.tila === t}">${t === 'korjattu' ? 'Korjattu' : n}</button>`).join('')}</div>
     <div class="lisa" data-lisa="${x.key}"${v.tila === 'poikkeama' || v.tila === 'korjattu' || v.huom ? '' : ' hidden'}>
       ${ta(`kohdat.${x.key}.huom`, v.huom, v.tila === 'korjattu' ? 'Mitä tehtiin?' : 'Mikä on vialla, missä?')}
-      <div class="kuvaRivi"><button class="s" data-kuva="${x.key}">📷 Kuva</button><span class="mut" data-km="${x.key}"></span></div>
-    </div></div>`;
+    </div><div class="kt" data-kt="${x.key}"></div></div>`;
 }
 function renderKaynti() {
   const k = K(); if (!k) { nayta('asemat'); return; }
@@ -386,11 +404,12 @@ function renderKaynti() {
   </section>
   ${k.aiemmat.length ? `<section class="kortti" style="border-color:var(--pk)">
     <h2>Edellisen käynnin avoimet poikkeamat (${k.aiemmat.length})</h2>
-    <p class="mut" style="margin-top:-4px">Merkitse jokaiselle, miltä tilanne näyttää nyt.</p>
-    ${k.aiemmat.map((x, i) => `<div class="kohta aiempi"><div class="nm">${esc(x.nimi)}<span class="kk">${esc(x.osio)}</span></div>
+    <p class="mut" style="margin-top:-4px">Merkitse jokaiselle, miltä tilanne näyttää nyt. Ota 📷 uusi kuva samasta kohdasta vertailuksi.</p>
+    ${k.aiemmat.map((x, i) => `<div class="kohta aiempi"><div class="nm"><span class="nt">${esc(x.nimi)}<span class="kk">${esc(x.osio)}</span></span>${ikonit(x.key, `aiemmat.${i}.huomNyt`).replace('data-avaa=', `data-avaaai="${i}" data-x0=`)}</div>
       <div class="edel">Havaittu ${pvmFi(x.havaittu)}${x.huom ? ': ' + esc(x.huom) : ''}</div>
       <div class="tilat aiempi">${Object.entries(SEUR_NIMI).map(([t, n]) => `<button type="button" data-st="${t}" data-i="${i}" class="${x.tila === t ? 'on' : ''}" aria-pressed="${x.tila === t}">${n}</button>`).join('')}</div>
-      <div class="lisa" data-lisaai="${i}"${x.tila && x.tila !== 'korjattu' || x.huomNyt ? '' : ' hidden'}>${ta(`aiemmat.${i}.huomNyt`, x.huomNyt, 'Tilanne nyt')}</div></div>`).join('')}
+      <div class="lisa" data-lisaai="${i}"${x.tila && x.tila !== 'korjattu' || x.huomNyt ? '' : ' hidden'}>${ta(`aiemmat.${i}.huomNyt`, x.huomNyt, 'Tilanne nyt')}</div>
+      <div class="vert" data-vert="${esc(x.key)}"></div></div>`).join('')}
   </section>` : ''}
   <div class="info" style="margin-top:0">Tarkastuskohdat ovat luonnos (build ${BUILD}). Ne tarkentuvat ennen käyttöönottoa.</div>
   ${kausiOsiot.map(o => osioHtml(o, false)).join('')}
@@ -431,12 +450,31 @@ function paivitaPalkki() {
 function naytaMuistioTila() { const el = $('muistioTila'); if (!el || !K()) return; const n = K().muistio.split('\n').filter(r => r.trim()).length; el.textContent = n ? `· ${n} ${n === 1 ? 'rivi' : 'riviä'}` : ''; }
 async function renderKuvat() {
   const el = $('kuvaLista'); if (!el) return; const kuvat = await kaynninKuvat();
-  el.innerHTML = kuvat.length ? kuvat.map(x => `<figure data-kuvaid="${esc(x.id)}"><img src="${x.data}" alt="${esc(x.selite)}"><figcaption>${esc(x.selite)}${x.teksti ? ': ' + esc(x.teksti) : ''}</figcaption></figure>`).join('') : '<p class="mut" style="grid-column:1/-1;margin:0">Ei kuvia. Kohdan 📷-nappi liittää kuvan suoraan poikkeamaan.</p>';
+  el.innerHTML = kuvat.length ? kuvat.map(x => `<figure data-kuvaid="${esc(x.id)}"><img src="${x.data}" alt="${esc(x.selite)}"><figcaption>${esc(x.selite)}${x.teksti ? ': ' + esc(x.teksti) : ''}</figcaption></figure>`).join('') : '<p class="mut" style="grid-column:1/-1;margin:0">Ei kuvia. Kohdan rivin 📷 liittää kuvan suoraan siihen kohtaan.</p>';
 }
 async function paivitaKuvaMaarat() {
-  const kuvat = await kaynninKuvat(), m = {}; kuvat.forEach(x => { m[x.kohta] = (m[x.kohta] || 0) + 1; });
-  document.querySelectorAll('[data-km]').forEach(el => { const n = m[el.dataset.km] || 0; el.textContent = n ? `${n} kuva${n > 1 ? 'a' : ''}` : ''; });
-  document.querySelectorAll('[data-kk]').forEach(el => { const n = m[el.dataset.kk] || 0; el.textContent = n ? `📷 ${n}` : ''; });
+  const k = K(); if (!k) return;
+  const kuvat = await kaynninKuvat(), vanhat = await asemanVertailukuvat(k.asemaId), m = {};
+  kuvat.forEach(x => { (m[x.kohta] = m[x.kohta] || []).push(x); });
+  const img = x => `<img src="${x.data}" alt="${esc(x.selite)}" data-kuvaid="${esc(x.id)}">`;
+  document.querySelectorAll('[data-kk]').forEach(el => { const n = (m[el.dataset.kk] || []).length; el.textContent = n ? `📷 ${n}` : ''; });
+  document.querySelectorAll('[data-kt]').forEach(el => { el.innerHTML = (m[el.dataset.kt] || []).map(img).join(''); });
+  document.querySelectorAll('[data-vert]').forEach(el => { const key = el.dataset.vert, ae = vanhat.filter(x => x.kohta === key), nyt = m[key] || [];
+    el.innerHTML = `<div><div class="ots">Aiemmin</div>${ae.length ? ae.map(x => img(x) + `<div class="mut">${pvmFi(x.pvm)}</div>`).join('') : '<div class="tyhja">Ei kuvaa edelliseltä käynniltä</div>'}</div>
+      <div><div class="ots">Nyt</div>${nyt.length ? nyt.map(img).join('') : '<div class="tyhja">Ota 📷 kuva samasta kohdasta</div>'}</div>`; });
+}
+// Käynnin päättyessä: avoimien poikkeamien kuvat jäävät vertailukuviksi (alkuperäinen + tämän käynnin kuvat, enintään 4).
+async function paivitaVertailukuvat(k) {
+  const auki = new Set(avoimet(k).map(x => x.key)), kaikki = await kaikkiKuvat();
+  const vanhat = kaikki.filter(x => x.historia && x.asemaId === k.asemaId), uudet = kaikki.filter(x => !x.historia && x.kayntiId === k.id);
+  const pidaVanhat = new Set(), pidaUudet = new Set();
+  for (const key of auki) {
+    const v = vanhat.filter(x => x.kohta === key).sort((a, b) => a.aika - b.aika), u = uudet.filter(x => x.kohta === key).sort((a, b) => a.aika - b.aika);
+    if (u.length) { if (v[0]) pidaVanhat.add(v[0].id); u.slice(-3).forEach(x => pidaUudet.add(x.id)); }  // alkuperäinen + uusimmat
+    else { if (v[0]) pidaVanhat.add(v[0].id); if (v.length > 1) pidaVanhat.add(v[v.length - 1].id); }
+  }
+  for (const x of vanhat) if (!pidaVanhat.has(x.id)) await poistaKuva(x.id);
+  for (const x of uudet) { if (pidaUudet.has(x.id)) await talletaKuva({ ...x, historia: true, asemaId: k.asemaId, pvm: k.pvm }); else await poistaKuva(x.id); }
 }
 
 // ---------- toiminnot ----------
@@ -465,7 +503,8 @@ function asetaTila(key, t) {
 }
 async function laheta() {
   const k = K(); if (!k) return;
-  const kuvat = await kaynninKuvat();
+  const aiemmatKeys = new Set(k.aiemmat.map(x => x.key));
+  const kuvat = [...await kaynninKuvat(), ...(await asemanVertailukuvat(k.asemaId)).filter(x => aiemmatKeys.has(x.kohta)).map(x => ({ ...x, historia: true }))];
   const blob = new Blob([JSON.stringify({ tyokalu: TYOKALU, build: BUILD, schemaVersion: SCHEMA, lahetetty: new Date().toISOString(), kaynti: k, kuvat })], { type: 'application/json' });
   const fname = `Asemakierto_${nimiOsa(k.asema.numero ? k.asema.numero + '_' + k.asema.nimi : k.asema.nimi) || 'asema'}_${k.pvm}_${kello()}_${nimiOsa(k.tekija) || 'kavija'}.json`;
   if (VASTAANOTTAJA && (await dialogi('Lähetä käynti', `Valitse jakovalikosta sähköposti ja lähetä osoitteeseen<br><b>${esc(VASTAANOTTAJA)}</b>`, ['Jatka', 'Peruuta'])) !== 0) return;
@@ -477,16 +516,16 @@ async function laheta() {
 async function merkitseValmiiksi(varmistettu) {
   const k = K(); if (!k) return;
   if (!varmistettu) {
-    if (lahettamatta()) { const r = await dialogi('Käyntiä ei ole lähetetty', 'Lähetä käynti ennen kuin merkitset sen valmiiksi. Kuvat poistuvat puhelimesta, kun käynti merkitään valmiiksi.', ['📤 Lähetä ensin', 'Merkitse silti', 'Peruuta']);
+    if (lahettamatta()) { const r = await dialogi('Käyntiä ei ole lähetetty', 'Lähetä käynti ennen kuin merkitset sen valmiiksi. Puhelimeen jäävät vain avoimien poikkeamien vertailukuvat.', ['📤 Lähetä ensin', 'Merkitse silti', 'Peruuta']);
       if (r === 0) { await laheta(); return; } if (r !== 1) return; }
     else if ((await dialogi('Merkitse valmiiksi', `Käynti asemalla <b>${esc(k.asema.nimi)}</b> päätetään. Avoimet poikkeamat siirtyvät seuraavalle käynnille.`, ['Merkitse valmiiksi', 'Peruuta'])) !== 0) return;
   }
-  lopetaSanelu(); A.historia[k.asemaId] = JSON.parse(JSON.stringify(k)); A.kaynti = null; await tyhjennaKuvat(); tallenna(false); nayta('asemat');
+  lopetaSanelu(); A.historia[k.asemaId] = JSON.parse(JSON.stringify(k)); await paivitaVertailukuvat(k); A.kaynti = null; tallenna(false); nayta('asemat');
 }
 async function hylkaaKaynti() {
   const k = K(); if (!k) return;
   if ((await dialogi('Hylkää käynti', `Käynnin tiedot ja kuvat asemalta <b>${esc(k.asema.nimi)}</b> poistetaan tästä puhelimesta${lahettamatta() ? '. Käyntiä <b>ei ole lähetetty</b>' : ''}. Edellinen käynti säilyy.`, ['Hylkää', 'Peruuta'])) !== 0) return;
-  lopetaSanelu(); A.kaynti = null; await tyhjennaKuvat(); tallenna(false); nayta('asemat');
+  lopetaSanelu(); for (const x of await kaynninKuvat()) await poistaKuva(x.id); A.kaynti = null; tallenna(false); nayta('asemat');
 }
 async function muokkaaAsemaa(id) {
   const a = id ? A.asemat.find(x => x.id === id) : { id: '', nimi: '', numero: '', osoite: '', paikkakunta: '' }; if (!a) return;
@@ -497,7 +536,7 @@ async function muokkaaAsemaa(id) {
     <label class="k">Paikkakunta<input id="aPk" value="${esc(a.paikkakunta)}"></label></div>`, id ? ['Tallenna', 'Peruuta', 'Poista asema'] : ['Lisää', 'Peruuta']);
   if (r === 2) {
     if (K() && K().asemaId === id) { dialogi('Asemaa ei voi poistaa', 'Asemalla on keskeneräinen käynti. Päätä tai hylkää käynti ensin.', ['OK']); return; }
-    if ((await dialogi('Poista asema', `Poistetaanko <b>${esc(a.nimi)}</b> ja sen käyntihistoria tästä puhelimesta? Lähetetyt tiedostot säilyvät.`, ['Poista', 'Peruuta'])) === 0) { A.asemat = A.asemat.filter(x => x.id !== id); delete A.historia[id]; tallenna(false); renderAsemat(); }
+    if ((await dialogi('Poista asema', `Poistetaanko <b>${esc(a.nimi)}</b> ja sen käyntihistoria tästä puhelimesta? Lähetetyt tiedostot säilyvät.`, ['Poista', 'Peruuta'])) === 0) { A.asemat = A.asemat.filter(x => x.id !== id); delete A.historia[id]; for (const q of await asemanVertailukuvat(id)) await poistaKuva(q.id); tallenna(false); renderAsemat(); }
     return;
   }
   if (r !== 0) return;
@@ -541,7 +580,10 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('click', async e => {
   const mb = e.target.closest('button[data-mic]');
-  if (mb) { e.preventDefault(); const p = mb.dataset.mic; if (san && san.paalla && san.path === p) lopetaSanelu(); else aloitaSaneluNapista(p); return; }
+  if (mb) { e.preventDefault(); const p = mb.dataset.mic;
+    if (mb.dataset.avaa) { const l = document.querySelector(`[data-lisa="${mb.dataset.avaa}"]`); if (l) l.hidden = false; }
+    if (mb.dataset.avaaai) { const l = document.querySelector(`[data-lisaai="${mb.dataset.avaaai}"]`); if (l) l.hidden = false; }
+    if (san && san.paalla && san.path === p) lopetaSanelu(); else aloitaSaneluNapista(p); return; }
   const tb = e.target.closest('.tilat button[data-t]'); if (tb) { asetaTila(tb.dataset.key, tb.dataset.t); return; }
   const sb = e.target.closest('.tilat button[data-st]');
   if (sb) { const x = K().aiemmat[+sb.dataset.i]; x.tila = x.tila === sb.dataset.st ? '' : sb.dataset.st;
@@ -553,7 +595,7 @@ document.addEventListener('click', async e => {
   if (ok) { const o = OSIOT.find(x => x.id === ok.dataset.kaikkiok); o.kohdat.forEach(x => { const v = K().kohdat[x.key]; if (!v || !v.tila) asetaTila(x.key, 'ok'); }); return; }
   const kv = e.target.closest('button[data-kuva],button[data-galleria]');
   if (kv) { kuvaKohde = kv.dataset.kuva || kv.dataset.galleria; $(kv.dataset.kuva ? 'kuvaInput' : 'kuvaGalleria').click(); return; }
-  const fig = e.target.closest('figure[data-kuvaid]'); if (fig) { muokkaaKuvaa(fig.dataset.kuvaid); return; }
+  const fig = e.target.closest('figure[data-kuvaid],img[data-kuvaid]'); if (fig) { muokkaaKuvaa(fig.dataset.kuvaid); return; }
   const b = e.target.closest('button[data-x]'); if (!b) return;
   const x = b.dataset.x;
   if (x === 'aloita') aloitaKaynti(b.dataset.id);
@@ -566,9 +608,14 @@ document.addEventListener('click', async e => {
   else if (x === 'hylkaa') hylkaaKaynti();
 });
 async function muokkaaKuvaa(id) {
-  const x = (await kaynninKuvat()).find(y => y.id === id); if (!x) return;
-  const r = await dialogi(x.selite, `<img src="${x.data}" alt=""><label class="k" style="margin-top:10px">Kuvateksti<input id="kuvaTeksti" value="${esc(x.teksti)}"></label>`, ['Tallenna', 'Sulje', 'Poista kuva']);
-  if (r === 0) { x.teksti = $('kuvaTeksti').value; await talletaKuva(x); tallenna(); renderKuvat(); }
+  const x = (await kaikkiKuvat()).find(y => y.id === id); if (!x) return;
+  if (x.historia) { await dialogi(`${x.selite} · ${pvmFi(x.pvm)}`, `<img src="${x.data}" alt="">${x.teksti ? `<p>${esc(x.teksti)}</p>` : ''}<p class="mut">Vertailukuva aiemmalta käynniltä.</p>`, ['Sulje']); return; }
+  const k = K(), vaihtoehdot = [['muu', 'Muu (ei kohtaa)'], ...k.aiemmat.map(a => [a.key, 'Aiempi poikkeama: ' + a.nimi]), ...OSIOT.flatMap(o => o.kohdat.map(q => [q.key, o.nimi + ': ' + q.nimi]))]
+    .filter((v, i, t) => t.findIndex(w => w[0] === v[0]) === i);
+  const r = await dialogi(x.selite, `<img src="${x.data}" alt="">
+    <label class="k" style="margin-top:10px">Kohta<select id="kuvaKohta">${vaihtoehdot.map(([v, n]) => `<option value="${esc(v)}"${v === x.kohta ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <label class="k" style="margin-top:10px">Kuvateksti<input id="kuvaTeksti" value="${esc(x.teksti)}"></label>`, ['Tallenna', 'Sulje', 'Poista kuva']);
+  if (r === 0) { x.teksti = $('kuvaTeksti').value; x.kohta = $('kuvaKohta').value; x.selite = kuvaSelite(x.kohta); await talletaKuva(x); tallenna(); await renderKuvat(); paivitaKuvaMaarat(); }
   else if (r === 2 && (await dialogi('Poista kuva', 'Poistetaanko kuva?', ['Poista', 'Peruuta'])) === 0) { await poistaKuva(id); tallenna(); await renderKuvat(); paivitaKuvaMaarat(); }
 }
 $('lisaaAsema').onclick = () => muokkaaAsemaa(null);
@@ -595,7 +642,11 @@ $('avaaInput').onchange = async e => {  // toisen kävijän lähettämä käynti
     k.asemaId = r.asema.id; k.asema = { ...r.asema };
     const vanha = A.historia[r.asema.id];
     if (vanha && vanha.pvm > k.pvm && (await dialogi('Vanhempi käynti', `Puhelimessa on jo uudempi käynti (${pvmFi(vanha.pvm)}) kuin tiedostossa (${pvmFi(k.pvm)}). Korvataanko?`, ['Korvaa', 'Peruuta'])) !== 0) { tallenna(false); renderAsemat(); return; }
-    A.historia[r.asema.id] = k; tallenna(false); renderAsemat();
+    A.historia[r.asema.id] = k;
+    const auki = new Set(avoimet(k).map(x => x.key)), tuodut = (Array.isArray(d.kuvat) ? d.kuvat : []).filter(x => x && typeof x.data === 'string' && /^data:image\//.test(x.data) && auki.has(x.kohta));
+    if (tuodut.length) { for (const q of await asemanVertailukuvat(r.asema.id)) await poistaKuva(q.id);
+      for (const q of tuodut) await talletaKuva({ id: uid(), kayntiId: k.id, asemaId: r.asema.id, pvm: String(q.pvm || k.pvm), kohta: String(q.kohta), selite: String(q.selite || kuvaSelite(q.kohta)), teksti: String(q.teksti || ''), data: q.data, aika: +q.aika || Date.now(), historia: true }); }
+    tallenna(false); renderAsemat();
     dialogi('Käynti avattu', `<b>${esc(r.asema.nimi)}</b>: käynti ${pvmFi(k.pvm)} (${esc([k.tekija, k.yritys].filter(Boolean).join(', '))}). ${avoimet(k).length} avointa poikkeamaa siirtyy seuraavalle käynnille.`, ['OK']); }
   catch (err) { dialogi('Avaus epäonnistui', esc(err.message || String(err)), ['OK']); }
 };
@@ -677,7 +728,7 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 window.addEventListener('beforeunload', e => { if (lahettamatta()) { e.preventDefault(); e.returnValue = ''; } });
 nayta(K() ? 'kaynti' : 'asemat');
 if (latausVirhe) dialogi('Tallennettuja tietoja ei voitu lukea', 'Puhelimeen tallennettu asemalista tai käynti on vioittunut. Lähetetyt käynnit ovat tallessa sähköpostissa. Voit aloittaa alusta ja avata edellisen käynnin tiedostosta.', ['Aloita alusta', 'Peruuta']).then(r => { if (r === 0) { latausVirhe = false; A = uusiTila(); tallenna(false); nayta('asemat'); } });
-window.__AK = { tila: () => A, kaynninKuvat, avoimet, OSIOT };
+window.__AK = { tila: () => A, kaynninKuvat, kaikkiKuvat, talletaKuva, paivitaKuvaMaarat, renderKuvat, avoimet, OSIOT };
 })();
 </script>
 </body>
