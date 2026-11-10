@@ -1,0 +1,17 @@
+{
+  "name": "Luotea Asemakierto",
+  "short_name": "Asemakierto",
+  "description": "Asemanhoidon tarkastuskäynti: poikkeamat, kuvat, sanelu ja lähetys",
+  "lang": "fi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F0EA",
+  "theme_color": "#0F4B4B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

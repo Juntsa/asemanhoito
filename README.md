@@ -1,0 +1,26 @@
+# Luotea Asemakierto
+
+Asemanhoidon tarkastuskäynti puhelimella. Käyttäjinä Luotean kiinteistönhoitajat ja alihankkijat, noin kuusi käyntiä asemaa kohden vuodessa. Sisarsovellus Kohdekierrolle.
+
+**Käyttö:** avaa https://juntsa.github.io/asemakierto/ puhelimessa ja valitse *Lisää kotinäytölle*. Käyttöohje: [ohje.html](ohje.html).
+
+## Toiminta
+
+- Kävijän nimi ja yritys täytetään kerran.
+- Asemat lisätään puhelimessa tai tuodaan tiedostosta (JSON tai CSV, sarakkeet `nimi;numero;osoite;paikkakunta`).
+- Uusi käynti tuo edellisen käynnin avoimet poikkeamat: Korjattu / Ennallaan / Pahentunut.
+- Tarkastuskohdat: Kunnossa / Poikkeama / Korjattu paikalla. Tyhjä tarkoittaa, ettei kohtaa tarkastettu.
+- Osiot näytetään vuodenajan mukaan. Muiden vuodenaikojen osiot saa auki käsin.
+- 🎤-sanelu kaikkiin tekstikenttiin, kuvat kohtaan liitettynä, käyntimuistio.
+- 📤 Lähetä käynti: JSON-tiedosto (käynti ja kuvat) puhelimen jakovalikolla. Sama tiedosto avautuu toisella puhelimella (*Avaa käynti tiedostosta*).
+
+## Tiedot
+
+- Tiedot pysyvät laitteella (localStorage + IndexedDB). Lomake ei lähetä tietoja palvelimelle. Poikkeus: sanelussa puhe käsitellään puhelimen puheentunnistuksessa (Apple tai Google).
+- Repo on julkinen: asemalistaa, osoitteita tai sopimustietoja ei tallenneta tähän repoon.
+
+## Kehitys
+
+- Tarkastuskohdat ovat `index.html`:n alussa taulukossa `OSIOT`. Build 261110.1:ssä ne ovat luonnos.
+- Kohdan `id` ei saa muuttua käyttöönoton jälkeen, koska avoimet poikkeamat seuraavat sitä käynniltä toiselle.
+- Build-numero `BUILD` (index.html) ja `VERSIO` (sw.js) nostetaan yhdessä.
