@@ -9,7 +9,9 @@ Asemanhoidon tarkastuskäynti puhelimella. Käyttäjinä Luotean kiinteistönhoi
 - Kävijän nimi ja yritys täytetään kerran.
 - Asemat lisätään puhelimessa tai tuodaan tiedostosta (JSON tai CSV, sarakkeet `nimi;numero;osoite;paikkakunta`).
 - Uusi käynti tuo edellisen käynnin avoimet poikkeamat: Korjattu / Ennallaan / Pahentunut.
-- Tarkastuskohdat: Kunnossa / Poikkeama / Korjattu paikalla. Tyhjä tarkoittaa, ettei kohtaa tarkastettu.
+- Tarkastuskohdat: Kunnossa / Poikkeama / Korjattu paikalla / Ei asemalla. Tyhjä tarkoittaa, ettei kohtaa tarkastettu. Ei asemalla muistetaan asemakohtaisesti.
+- Jokaisella kohdalla vastuutaho (Oma työ / Aseman omistaja / Kauppias), pikasyyt, Vikailmoitus tehty -merkintä ja tarvittaessa ⓘ-ohje.
+- Tulos-% ja korjattavat asiat vastuutahoittain, kopioitavissa viestiksi (261110.3).
 - Osiot näytetään vuodenajan mukaan. Muiden vuodenaikojen osiot saa auki käsin.
 - 📷 ja 🎤 jokaisen kohdan rivillä, käyntimuistio.
 - Vertailukuvat: avoimen poikkeaman kuvat säilyvät seuraavaan käyntiin ja näkyvät rinnakkain uuden kuvan kanssa (261110.2).
@@ -22,6 +24,6 @@ Asemanhoidon tarkastuskäynti puhelimella. Käyttäjinä Luotean kiinteistönhoi
 
 ## Kehitys
 
-- Tarkastuskohdat ovat `index.html`:n alussa taulukossa `OSIOT`. Build 261110.1:ssä ne ovat luonnos.
+- Tarkastuskohdat ovat `index.html`:n alussa taulukossa `OSIOT`. Tekstit ovat yleisiä: yrityskohtaiset nimet ja ohjeet lisätään, kun lomake siirtyy yrityksen järjestelmään.
 - Kohdan `id` ei saa muuttua käyttöönoton jälkeen, koska avoimet poikkeamat seuraavat sitä käynniltä toiselle.
 - Build-numero `BUILD` (index.html) ja `VERSIO` (sw.js) nostetaan yhdessä.

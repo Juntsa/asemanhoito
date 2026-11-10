@@ -62,9 +62,15 @@ b.nappi{display:inline-block;background:var(--kalkki);border-radius:6px;padding:
     <ol>
       <li>Paina aseman kohdalla <b class="nappi">Aloita käynti</b>.</li>
       <li><b>Edellisen käynnin avoimet poikkeamat</b> ovat ylimpänä. Valitse jokaiselle <b class="nappi">Korjattu</b>, <b class="nappi">Ennallaan</b> tai <b class="nappi">Pahentunut</b>.</li>
-      <li>Käy osiot läpi. Valitse kohdalle <b class="nappi">Kunnossa</b>, <b class="nappi">Poikkeama</b> tai <b class="nappi">Korjattu</b> (korjasit itse käynnillä). <b class="nappi">✓ Muut kohdat kunnossa</b> merkitsee kerralla loput.</li>
-      <li>Poikkeamalle avautuu lisätieto. Kerro mikä on vialla ja missä.</li>
+      <li>Käy osiot läpi. Valitse kohdalle <b class="nappi">Kunnossa</b>, <b class="nappi">Poikkeama</b>, <b class="nappi">Korjattu</b> (korjasit itse käynnillä) tai <b class="nappi">Ei asemalla</b>. <b class="nappi">✓ Muut kohdat kunnossa</b> merkitsee kerralla loput.</li>
+      <li>Poikkeamalle avautuvat pikasyyt (esim. <i>Likainen, Rikki, Vuoto</i>), tarkennus ja <b class="nappi">☐ Vikailmoitus tehty</b>. Valitse syy napilla ja tarkenna tarvittaessa sanelemalla.</li>
     </ol>
+    <ul>
+      <li>Kohdan nimen perässä näkyy, kenen vastuulla asia on: <b>Oma työ</b>, <b>Aseman omistaja</b> tai <b>Kauppias</b>.</li>
+      <li><b>Ei asemalla</b> tarkoittaa, ettei asemalla ole tätä laitetta tai aluetta. Puhelin muistaa valinnan, ja se on valmiina aseman seuraavalla käynnillä. Tyhjäksi jätetty kohta tarkoittaa, ettei sitä tarkastettu.</li>
+      <li><b class="nappi">ⓘ</b> kohdan rivillä näyttää lyhyen ohjeen.</li>
+      <li>Merkitse <b>Vikailmoitus tehty</b>, kun olet ilmoittanut viasta. Merkintä kulkee seuraavalle käynnille, joten siellä näkee, mistä on jo ilmoitettu.</li>
+    </ul>
     <h3>📷 Kuva ja 🎤 sanelu kohtaan</h3>
     <ul>
       <li>Jokaisen kohdan rivillä oikealla on <b class="nappi">📷</b> ja <b class="nappi">🎤</b>. Kuva ja sanelu menevät suoraan siihen kohtaan, esimerkiksi <i>Mittarisaarekkeet ja roska-astiat</i>.</li>
@@ -90,6 +96,7 @@ b.nappi{display:inline-block;background:var(--kalkki);border-radius:6px;padding:
 
   <section id="laheta">
     <h2>4. Lähetys ja valmis</h2>
+    <p><b>Käynnin päättäminen</b> -kohdassa näkyy tulos (kunnossa olevien kohtien osuus arvioiduista, Ei asemalla -kohdat pois laskettuna) sekä korjattavat asiat vastuutahoittain. <b class="nappi">📋 Kopioi lista</b> kopioi esimerkiksi kauppiaan korjattavat asiat valmiiksi viestiksi.</p>
     <ol>
       <li>Paina <b class="nappi">📤 Lähetä</b>. Puhelimen jakovalikko aukeaa, ja käyntitiedosto on liitteenä.</li>
       <li>Valitse sähköposti ja lähetä sovittuun osoitteeseen.</li>
