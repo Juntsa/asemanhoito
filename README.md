@@ -2,7 +2,7 @@
 
 Asemanhoidon tarkastuskäynti puhelimella. Käyttäjinä Luotean kiinteistönhoitajat ja alihankkijat, noin kuusi käyntiä asemaa kohden vuodessa. Sisarsovellus Kohdekierrolle.
 
-**Käyttö:** avaa https://juntsa.github.io/asemakierto/ puhelimessa ja valitse *Lisää kotinäytölle*. Käyttöohje: [ohje.html](ohje.html).
+**Käyttö:** avaa https://juntsa.github.io/asemanhoito/ puhelimessa ja valitse *Lisää kotinäytölle*. Käyttöohje: [ohje.html](ohje.html).
 
 ## Toiminta
 
