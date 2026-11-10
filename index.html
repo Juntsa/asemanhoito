@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F4B4B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Asemakierto">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Luotea Asemakierto</title>
+<!--
+  Luotea Asemakierto – asemanhoidon tarkastuskäynti puhelimella (KH ja alihankkija, n. 6 käyntiä / asema / vuosi).
+  Sisarsovellus Kohdekierrolle: sama ulkoasu, sanelu, muistio ja kuvat. Tiedot pysyvät laitteella.
+  Toimintamalli:
+    - Puhelin muistaa kävijän asemat ja jokaisen aseman viimeisimmän käynnin (ilman kuvia).
+    - Uusi käynti tuo edellisen käynnin avoimet poikkeamat listaksi: Korjattu / Ennallaan / Pahentunut.
+    - Tarkastuskohdat: Kunnossa / Poikkeama / Korjattu paikalla. Tyhjä = ei tarkastettu. Ei pakollisia kenttiä.
+    - Osiot näytetään vuodenajan mukaan (päivämäärästä), muut saa auki käsin.
+    - 📤 Lähetä käynti: JSON-tiedosto (käynti + kuvat) puhelimen jakovalikolla sähköpostiin / Teamsiin.
+      Sama tiedosto avautuu toisella puhelimella (sijainen) ja myöhemmin lukijassa.
+  Julkinen repo: asemalistaa, osoitteita tai sopimustietoja EI kirjoiteta koodiin. Asemat lisätään puhelimessa
+  tai tuodaan erillisestä tiedostosta (JSON tai CSV).
+  (261110.1) Build 1: alusta. Tarkastuskohdat (OSIOT) ovat LUONNOS, korvataan Juntsan selvittämillä kohteilla.
+-->
+<style>
+:root{--havu:#0F4B4B;--havu-dk:#093838;--kalkki:#E6DCD2;--kalkki-lt:#F5F0EA;--kalkki-md:#EFE7DD;--luumu:#371E30;--hiili:#1F1F1F;
+--celadon:#96E6AA;--mulberry:#AA4678;--mut:#5A4655;--raja:#D9CFC4;--ok:#1E6B45;--ok-bg:#E3F4E8;--pk:#A3242E;--pk-bg:#FBE9EA;--kj:#7A5A00;--kj-bg:#FFF4D6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:16px;line-height:1.4;color:var(--hiili);background:var(--kalkki-lt);padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+header{background:var(--havu);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0}
+header .ala{font-size:12px;opacity:.8}
+header a.ohje{margin-left:auto;color:var(--celadon);font-weight:700;text-decoration:none;font-size:14px;padding:8px 4px}
+header .build{font-size:11px;opacity:.7;text-align:right;margin-left:6px}
+main{max-width:760px;margin:0 auto;padding:12px 12px 24px}
+.kortti{background:#fff;border:1px solid var(--raja);border-radius:14px;padding:14px;margin-bottom:12px}
+.kortti>h2{font-size:16px;margin:0 0 10px;color:var(--havu)}
+.kentat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.kentat{grid-template-columns:1fr}}
+label.k{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut);min-width:0}
+input,select,textarea{font:inherit;font-size:16px;border:1px solid var(--raja);border-radius:10px;padding:10px 11px;background:#fff;color:var(--hiili);width:100%;min-height:48px}
+textarea{min-height:70px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--celadon);outline-offset:1px;border-color:var(--havu)}
+button{font:inherit;cursor:pointer;border-radius:10px;min-height:48px}
+button:focus-visible{outline:3px solid var(--celadon);outline-offset:2px}
+button.p{background:var(--havu);color:#fff;border:none;padding:10px 16px;font-weight:650}
+button.s{background:#fff;color:var(--havu);border:1px solid var(--havu);padding:9px 14px;font-weight:600}
+button.l{background:none;border:1px dashed var(--havu);color:var(--havu);padding:9px 14px;width:100%;font-weight:600}
+button.v{background:#fff;color:var(--mulberry);border:1px solid var(--mulberry);padding:9px 14px;font-weight:600}
+.napit{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.napit button{flex:1 1 auto}
+.mut{color:var(--mut);font-size:13px}
+.info{background:#EAF3F1;border-left:4px solid var(--havu);padding:9px 11px;border-radius:8px;font-size:14px;color:#24403F;margin:8px 0}
+.varo{background:#FBEFF4;border-left:4px solid var(--mulberry);padding:9px 11px;border-radius:8px;font-size:14px;margin:8px 0}
+/* asemalista */
+.asema{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;padding:12px 0;border-top:1px solid var(--kalkki)}
+.asema:first-of-type{border-top:none}
+.asema .nm{font-weight:700;font-size:16px}
+.asema .tiedot{font-size:13px;color:var(--mut)}
+.asema .avoin{display:inline-block;background:var(--pk-bg);color:var(--pk);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;margin-left:4px}
+.asema .rivi2{grid-column:1/-1;display:flex;gap:8px}
+.asema .rivi2 button{flex:1}
+.haku{margin-bottom:6px}
+/* käynti */
+.kayntiOts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.kayntiOts h2{margin:0;font-size:20px;color:var(--havu)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 0;min-width:76px;background:#fff;border:1px solid var(--raja);color:var(--hiili);padding:8px 6px;font-weight:600;font-size:15px}
+.seg button.on{background:var(--havu);color:#fff;border-color:var(--havu)}
+details.osio{background:#fff;border:1px solid var(--raja);border-radius:14px;margin-bottom:12px;overflow:hidden}
+details.osio>summary{list-style:none;cursor:pointer;padding:14px;background:var(--kalkki-md);display:flex;align-items:center;gap:10px;font-weight:700;color:var(--havu);min-height:52px}
+details.osio>summary::-webkit-details-marker{display:none}
+details.osio>summary .tila{margin-left:auto;font-size:13px;font-weight:600;color:var(--mut);text-align:right}
+details.osio>summary .tila b{color:var(--pk)}
+details.osio.kausiOff>summary{background:#fff;color:var(--mut)}
+.nuoli{transition:transform .15s;display:inline-block;width:14px}
+details[open]>summary .nuoli{transform:rotate(90deg)}
+.sis{padding:12px 14px 14px}
+.kohta{padding:10px 0;border-top:1px solid var(--kalkki)}
+.kohta:first-child{border-top:none;padding-top:0}
+.kohta .nm{font-weight:600;margin-bottom:6px}
+.kohta .nm .kk{font-weight:600;font-size:12px;color:var(--mut);margin-left:6px}
+.tilat{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tilat button{background:#fff;border:1px solid var(--raja);color:var(--hiili);font-weight:650;font-size:15px;padding:6px 4px}
+.tilat button[data-t="ok"].on{background:var(--ok);border-color:var(--ok);color:#fff}
+.tilat button[data-t="poikkeama"].on{background:var(--pk);border-color:var(--pk);color:#fff}
+.tilat button[data-t="korjattu"].on{background:#B8860B;border-color:#B8860B;color:#fff}
+.tilat.aiempi button[data-t="korjattu"].on{background:var(--ok);border-color:var(--ok)}
+.tilat.aiempi button[data-t="ennallaan"].on{background:#B8860B;border-color:#B8860B;color:#fff}
+.tilat.aiempi button[data-t="pahentunut"].on{background:var(--pk);border-color:var(--pk);color:#fff}
+.lisa{margin-top:8px;display:grid;gap:8px}
+.lisa .kuvaRivi{display:flex;gap:8px;align-items:center}
+.lisa .kuvaRivi button{flex:0 0 auto}
+.lisa .kuvaRivi .mut{flex:1}
+.kaikkiOk{margin-bottom:10px;width:100%}
+.aiempi .edel{font-size:13px;color:var(--mut);margin:-2px 0 6px}
+.osioHuom{margin-top:12px}
+/* sanelu */
+.sanelu{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;min-width:0}
+.sanelu .vali{grid-column:1/-1;color:#8A8A8A;font-style:italic;font-size:14px;line-height:1.35;padding:0 4px}
+.sanelu .vali:empty{display:none}
+button.mic{width:52px;height:52px;min-height:52px;padding:0;background:#fff;border:1px solid var(--havu);color:var(--havu);font-size:22px;line-height:1}
+button.mic.on{background:#C62828;border-color:#C62828;color:#fff;animation:pulssi 1.3s infinite}
+@keyframes pulssi{0%{box-shadow:0 0 0 0 rgba(198,40,40,.55)}70%{box-shadow:0 0 0 12px rgba(198,40,40,0)}100%{box-shadow:0 0 0 0 rgba(198,40,40,0)}}
+@media (prefers-reduced-motion:reduce){button.mic.on{animation:none}.nuoli{transition:none}}
+textarea.muistio{min-height:200px;line-height:1.45}
+#saneluPalkki{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:21;background:#C62828;color:#fff;border:none;border-radius:999px;padding:0 20px;min-height:48px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#saneluPalkki[hidden]{display:none}
+/* kuvat */
+.kuvat{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.kuvat figure{margin:0;border-radius:10px;overflow:hidden;border:1px solid var(--raja);background:#fff;cursor:pointer}
+.kuvat img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.kuvat figcaption{font-size:11px;padding:3px 6px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* alapalkki */
+.alapalkki{position:fixed;left:0;right:0;bottom:0;background:var(--havu-dk);color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;z-index:20;box-shadow:0 -4px 14px rgba(0,0,0,.18)}
+.alapalkki .lk{flex:1;min-width:0;font-size:13px;line-height:1.35}
+.alapalkki .lk b{font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alapalkki button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);min-width:48px;padding:0 10px;font-size:18px}
+.alapalkki button.t{background:var(--celadon);color:var(--luumu);border:none;padding:0 14px;font-size:15px;font-weight:700}
+.alapalkki[hidden]{display:none}
+dialog{border:none;border-radius:16px;padding:0;max-width:560px;width:calc(100% - 20px)}
+dialog::backdrop{background:rgba(15,30,30,.5)}
+dialog .dsis{padding:14px}
+dialog h3{margin:0 0 10px;color:var(--havu)}
+dialog img{width:100%;border-radius:10px;max-height:55vh;object-fit:contain;background:#000}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Asemakierto</h1><div class="ala">Luotea · asemanhoidon tarkastuskäynti</div></div>
+  <a class="ohje" href="ohje.html">Ohje</a>
+  <div class="build">build 261110.1<div id="tallennettu"></div><div id="verkko"></div></div>
+</header>
+
+<main>
+  <!-- etusivu -->
+  <div id="nakymaAsemat">
+    <div id="kesken"></div>
+    <section class="kortti">
+      <h2>Kävijä</h2>
+      <div class="kentat">
+        <label class="k">Nimi<input data-a-k="tekija" autocomplete="name"></label>
+        <label class="k">Yritys<input data-a-k="yritys" placeholder="Luotea tai alihankkijan yritys"></label>
+      </div>
+      <p class="mut" style="margin-bottom:0">Täytetään kerran. Nimi ja yritys tulevat jokaiseen käyntiin.</p>
+    </section>
+    <section class="kortti">
+      <h2>Asemat</h2>
+      <input id="haku" class="haku" type="search" placeholder="Hae asemaa" hidden>
+      <div id="asemaLista"></div>
+      <div class="napit">
+        <button class="l" id="lisaaAsema">+ Lisää asema</button>
+      </div>
+      <div class="napit">
+        <button class="s" id="tuoAsemat">📥 Tuo asemalista</button>
+        <button class="s" id="avaaKaynti">📂 Avaa käynti tiedostosta</button>
+      </div>
+      <p class="mut">Asemalista on vain tässä puhelimessa. Avaa käynti tiedostosta, kun sinulle on lähetetty edellisen kävijän käynti (esim. sijaisuus).</p>
+    </section>
+  </div>
+
+  <!-- käynti -->
+  <div id="nakymaKaynti" hidden></div>
+</main>
+
+<div class="alapalkki" id="alapalkki" hidden>
+  <button id="takaisin" title="Asemat" aria-label="Asemat">‹</button>
+  <div class="lk"><b id="palkkiNimi"></b><span id="palkkiTila"></span></div>
+  <button id="kuvaPika" title="Ota kuva" aria-label="Ota kuva">📷</button>
+  <button class="t" id="laheta">📤 Lähetä</button>
+</div>
+<button id="saneluPalkki" type="button" hidden>⏹ Lopeta sanelu</button>
+<input type="file" id="kuvaInput" accept="image/*" capture="environment" multiple hidden>
+<input type="file" id="kuvaGalleria" accept="image/*" multiple hidden>
+<input type="file" id="avaaInput" accept=".json,application/json" hidden>
+<input type="file" id="tuoInput" accept=".json,.csv,.txt,application/json,text/csv" hidden>
+<dialog id="dlg"><div class="dsis"><h3 id="dlgOts"></h3><div id="dlgTeksti"></div><div class="napit" id="dlgNapit"></div></div></dialog>
+
+<script>
+(() => {
+'use strict';
+const BUILD = '261110.1', SCHEMA = 1, TYOKALU = 'LuoteaAsemakierto', AVAIN = 'luotea_asemakierto_v1';
+// Lähetyksen vastaanottaja (jaettu postilaatikko). Tyhjä = ei näytetä. Osoite ei ole salainen, joten se voi olla koodissa.
+const VASTAANOTTAJA = '';
+
+// ---------- TARKASTUSKOHDAT – LUONNOS ----------
+// Korvataan Juntsan selvittämillä kohteilla. kausi: 'kaikki' tai lista ['talvi','kevät','kesä','syksy'].
+// Kohdan id:tä ei saa vaihtaa käyttöönoton jälkeen: avoimet poikkeamat seuraavat sitä käynniltä toiselle.
+const OSIOT = [
+  { id: 'piha', nimi: 'Piha ja liikennealueet', kausi: 'kaikki', kohdat: [
+    ['kulku', 'Kulkureitit ja myymälän edusta'], ['ajo', 'Ajo- ja pysäköintialueet'], ['roska', 'Irtoroskat piha-alueella'],
+    ['reuna', 'Reunakivet ja korokkeet'], ['valo', 'Valaistus (havainto)']] },
+  { id: 'mittari', nimi: 'Mittarikatos ja polttoainealue', kausi: 'kaikki', kohdat: [
+    ['katos', 'Mittarikatoksen alue'], ['saareke', 'Mittarisaarekkeet ja roska-astiat'], ['paperi', 'Pyyhepaperit ja pesuvälineet'],
+    ['imeytys', 'Imeytysaine saatavilla']] },
+  { id: 'pesu', nimi: 'Pesu, ilma ja vesi', kausi: 'kaikki', kohdat: [
+    ['imuri', 'Imurit ja niiden ympäristö'], ['ilma', 'Ilma- ja vesipiste'], ['halli', 'Pesuhallin edusta']] },
+  { id: 'lataus', nimi: 'Latauspisteet', kausi: 'kaikki', kohdat: [['alue', 'Latausalue ja kulku laitteille']] },
+  { id: 'jate', nimi: 'Jätehuolto', kausi: 'kaikki', kohdat: [
+    ['piste', 'Jätepiste tai -katos'], ['taytto', 'Roska-astioiden täyttöaste'], ['kierratys', 'Kierrätyspiste']] },
+  { id: 'talvi', nimi: 'Talvi', kausi: ['talvi'], kohdat: [
+    ['auraus', 'Auraus ajo- ja pysäköintialueilla'], ['liukkaus', 'Kulkureittien liukkaudentorjunta'],
+    ['katoslumi', 'Katosten ja räystäiden lumi ja jää'], ['lumitila', 'Lumitilat ja poisajon tarve']] },
+  { id: 'kevat', nimi: 'Kevät', kausi: ['kevät'], kohdat: [['hiekka', 'Hiekoitushiekan poisto'], ['siivous', 'Kevätsiivous']] },
+  { id: 'kesa', nimi: 'Viheralueet', kausi: ['kesä'], kohdat: [
+    ['nurmi', 'Nurmikot'], ['istutus', 'Istutukset ja pensaat'], ['rikka', 'Rikkakasvit kiveyksillä']] },
+  { id: 'syksy', nimi: 'Syksy', kausi: ['syksy'], kohdat: [['lehdet', 'Lehtien poisto'], ['talvikunto', 'Valmius talveen (aurausmerkit, hiekoitus)']] },
+  { id: 'ymp', nimi: 'Ympäristö ja tekniikka', kausi: 'kaikki', kohdat: [['kaivot', 'Sadevesikaivot ja ritilät'], ['erotin', 'Öljynerottimen ympäristö (havainto)']] },
+].map(o => ({ ...o, kohdat: o.kohdat.map(([id, nimi]) => ({ id, nimi, key: o.id + ':' + id })) }));
+const KOHTA = Object.fromEntries(OSIOT.flatMap(o => o.kohdat.map(k => [k.key, { ...k, osio: o.nimi }])));
+const KAUDET = ['talvi', 'kevät', 'kesä', 'syksy'];
+const kausiKuusta = m => (m >= 11 || m <= 3) ? 'talvi' : m <= 5 ? 'kevät' : m <= 8 ? 'kesä' : 'syksy';
+const osioKaudella = (o, k) => o.kausi === 'kaikki' || o.kausi.includes(k);
+const TILA_NIMI = { ok: 'Kunnossa', poikkeama: 'Poikkeama', korjattu: 'Korjattu paikalla' };
+const SEUR_NIMI = { korjattu: 'Korjattu', ennallaan: 'Ennallaan', pahentunut: 'Pahentunut' };
+
+// ---------- apurit ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const p2 = n => String(n).padStart(2, '0');
+const tanaan = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+const kello = () => { const d = new Date(); return `${p2(d.getHours())}${p2(d.getMinutes())}`; };
+const pvmFi = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? `${+m[3]}.${+m[2]}.${m[1]}` : (s || ''); };
+const nimiOsa = s => String(s || '').normalize('NFC').replace(/[^A-Za-z0-9_\-åäöÅÄÖ]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+const lueTeksti = f => f.text ? f.text() : new Promise((ok, ei) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => ei(r.error); r.readAsText(f); });  // vanha Safari
+const getP = (o, p) => p.split('.').reduce((t, k) => (t == null ? undefined : t[k]), o);
+function setP(o, p, v) { const a = p.split('.'); let t = o; for (let i = 0; i < a.length - 1; i++) { if (t[a[i]] == null || typeof t[a[i]] !== 'object') t[a[i]] = {}; t = t[a[i]]; } t[a[a.length - 1]] = v; }
+
+// ---------- tila ----------
+// A.asemat: [{id, nimi, numero, osoite, paikkakunta}]   A.historia: {asemaId: viimeisin valmis käynti ilman kuvia}
+// A.kaynti: keskeneräinen käynti tai null (yksi kerrallaan)
+const uusiTila = () => ({ v: SCHEMA, tekija: '', yritys: '', asemat: [], historia: {}, kaynti: null });
+let A = uusiTila();  // ladataan alla, kun apufunktiot on määritelty
+function normalisoi(d) {
+  const t = uusiTila();
+  if (typeof d.tekija === 'string') t.tekija = d.tekija; if (typeof d.yritys === 'string') t.yritys = d.yritys;
+  t.asemat = (Array.isArray(d.asemat) ? d.asemat : []).filter(a => a && a.nimi).map(normAsema);
+  t.historia = d.historia && typeof d.historia === 'object' ? Object.fromEntries(Object.entries(d.historia).filter(([, k]) => k && k.asemaId).map(([i, k]) => [i, normKaynti(k)])) : {};
+  t.kaynti = d.kaynti && d.kaynti.asemaId ? normKaynti(d.kaynti) : null;
+  return t;
+}
+const normAsema = a => ({ id: String(a.id || uid()), nimi: String(a.nimi || '').trim(), numero: String(a.numero ?? '').trim(), osoite: String(a.osoite || '').trim(), paikkakunta: String(a.paikkakunta || '').trim() });
+function normKaynti(k) {
+  const kohdat = {};
+  if (k.kohdat && typeof k.kohdat === 'object') for (const [key, v] of Object.entries(k.kohdat)) {
+    if (v && (v.tila === 'ok' || v.tila === 'poikkeama' || v.tila === 'korjattu' || v.huom)) kohdat[key] = { tila: TILA_NIMI[v.tila] ? v.tila : '', huom: String(v.huom || ''), nimi: String(v.nimi || (KOHTA[key] && KOHTA[key].nimi) || key), osio: String(v.osio || (KOHTA[key] && KOHTA[key].osio) || '') };
+  }
+  return { id: String(k.id || uid()), asemaId: String(k.asemaId), asema: normAsema(k.asema || { id: k.asemaId, nimi: '?' }), pvm: /^\d{4}-\d{2}-\d{2}$/.test(k.pvm) ? k.pvm : tanaan(),
+    kausi: KAUDET.includes(k.kausi) ? k.kausi : kausiKuusta(new Date().getMonth() + 1), tekija: String(k.tekija || ''), yritys: String(k.yritys || ''),
+    kohdat, osioHuom: k.osioHuom && typeof k.osioHuom === 'object' ? Object.fromEntries(Object.entries(k.osioHuom).map(([a, b]) => [a, String(b || '')])) : {},
+    aiemmat: (Array.isArray(k.aiemmat) ? k.aiemmat : []).map(x => ({ key: String(x.key), nimi: String(x.nimi || ''), osio: String(x.osio || ''), huom: String(x.huom || ''), havaittu: String(x.havaittu || ''), tila: SEUR_NIMI[x.tila] ? x.tila : '', huomNyt: String(x.huomNyt || '') })),
+    muistio: String(k.muistio || ''), aloitettu: +k.aloitettu || Date.now(), lahetetty: +k.lahetetty || 0, muutettu: +k.muutettu || 0 };
+}
+let latausVirhe = false;
+try { const l = JSON.parse(localStorage.getItem(AVAIN) || 'null'); if (l && typeof l === 'object') A = normalisoi(l); }
+catch (e) { latausVirhe = true; }  // tallennettua tilaa ei ylikirjoiteta: ks. tallenna()
+let ajastin = null;
+function tallenna(muutos = true) {
+  if (muutos && A.kaynti) A.kaynti.muutettu = Date.now();
+  clearTimeout(ajastin);
+  ajastin = setTimeout(() => { if (latausVirhe) { $('tallennettu').textContent = '⚠ tallennettua tietoa ei voitu lukea'; return; } try { localStorage.setItem(AVAIN, JSON.stringify(A)); $('tallennettu').textContent = 'tallennettu ' + new Date().toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { $('tallennettu').textContent = '⚠ ei tallennu – lähetä käynti'; } }, 300);
+  paivitaPalkki();
+}
+const K = () => A.kaynti;
+const lahettamatta = () => !!(K() && K().muutettu > K().lahetetty);
+
+// Edellisen käynnin avoimet poikkeamat: uudet poikkeamat + aiemmat, joita ei merkitty korjatuiksi.
+function avoimet(ed) {
+  if (!ed) return [];
+  const out = [], nahty = new Set();
+  for (const x of ed.aiemmat) if (x.tila !== 'korjattu' && !nahty.has(x.key)) { nahty.add(x.key); out.push({ key: x.key, nimi: x.nimi, osio: x.osio, havaittu: x.havaittu || ed.pvm, huom: x.huomNyt || x.huom, tila: '', huomNyt: '' }); }
+  for (const [key, v] of Object.entries(ed.kohdat)) if (v.tila === 'poikkeama' && !nahty.has(key)) { nahty.add(key); out.push({ key, nimi: v.nimi, osio: v.osio, havaittu: ed.pvm, huom: v.huom, tila: '', huomNyt: '' }); }
+  return out;
+}
+
+// ---------- kuvat (IndexedDB, vain keskeneräiselle käynnille) ----------
+let muistiKuvat = [];
+const idb = new Promise(res => { try { const r = indexedDB.open('luotea_asemakierto', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('kuvat', { keyPath: 'id' });
+  r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch (e) { res(null); } });
+const tx = (mode, f) => idb.then(d => new Promise((ok, ei) => { const t = d.transaction('kuvat', mode); f(t.objectStore('kuvat')); t.oncomplete = () => ok(); t.onerror = () => ei(t.error); }));
+async function kaikkiKuvat() { const d = await idb; if (!d) return muistiKuvat.slice(); return new Promise(ok => { const r = d.transaction('kuvat').objectStore('kuvat').getAll(); r.onsuccess = () => ok(r.result || []); r.onerror = () => ok([]); }); }
+async function kaynninKuvat() { const k = K(); if (!k) return []; return (await kaikkiKuvat()).filter(x => x.kayntiId === k.id).sort((a, b) => a.aika - b.aika); }
+async function talletaKuva(x) { const d = await idb; if (!d) { muistiKuvat = muistiKuvat.filter(y => y.id !== x.id).concat(x); return; } await tx('readwrite', s => s.put(x)); }
+async function poistaKuva(id) { const d = await idb; if (!d) { muistiKuvat = muistiKuvat.filter(y => y.id !== id); return; } await tx('readwrite', s => s.delete(id)); }
+async function tyhjennaKuvat() { const d = await idb; muistiKuvat = []; if (d) await tx('readwrite', s => s.clear()); }
+function pienenna(file) {
+  return new Promise((ok, ei) => { const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const max = 1600, sk = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+      c.width = Math.round(im.width * sk); c.height = Math.round(im.height * sk); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.72)); };
+    im.onerror = () => { URL.revokeObjectURL(url); ei(new Error('Kuvaa ei voitu lukea')); }; im.src = url; });
+}
+let kuvaKohde = 'muu';
+const kuvaSelite = key => key === 'muu' ? 'Muu' : key.startsWith('osio:') ? ((OSIOT.find(o => 'osio:' + o.id === key) || {}).nimi || 'Muu') : ((KOHTA[key] || (K() && K().kohdat[key]) || {}).nimi || 'Muu');
+async function lisaaKuvat(files) {
+  const k = K(); if (!k) return; let vir = 0;
+  for (const f of files) { try { await talletaKuva({ id: uid(), kayntiId: k.id, kohta: kuvaKohde, selite: kuvaSelite(kuvaKohde), teksti: '', data: await pienenna(f), aika: Date.now() }); } catch (e) { vir++; } }
+  tallenna(); await renderKuvat(); paivitaKuvaMaarat();
+  if (vir) dialogi('Kuvaa ei saatu talteen', `${vir} kuvaa jäi lisäämättä. Kokeile ottaa kuva uudelleen.`, ['OK']);
+}
+
+// ---------- dialogi ja jako ----------
+function dialogi(ots, html, napit) {
+  return new Promise(res => { const d = $('dlg'); $('dlgOts').textContent = ots; $('dlgTeksti').innerHTML = html;
+    $('dlgNapit').innerHTML = napit.map((x, i) => `<button class="${i === 0 ? 'p' : 's'}" data-i="${i}">${x}</button>`).join('');
+    let valmis = false; const loppu = i => { if (valmis) return; valmis = true; d.close(); res(i); };
+    $('dlgNapit').onclick = e => { const b = e.target.closest('button[data-i]'); if (b) loppu(+b.dataset.i); };
+    d.onclose = () => { if (!valmis) { valmis = true; res(-1); } };
+    if (d.showModal) d.showModal(); else res(confirm(html.replace(/<[^>]+>/g, '')) ? 0 : -1); });
+}
+async function jaaTaiLataa(blob, fname, tyyppi) {
+  try { const f = new File([blob], fname, { type: tyyppi });
+    if (navigator.canShare && navigator.canShare({ files: [f] }) && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) { await navigator.share({ files: [f], title: fname }); return true; } }
+  catch (e) { if (e && e.name === 'AbortError') return false; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  return true;
+}
+
+// ---------- näkymät ----------
+let nakyma = 'asemat', naytaKaikkiOsiot = false;
+function nayta(n) {
+  nakyma = n; lopetaSanelu();
+  $('nakymaAsemat').hidden = n !== 'asemat'; $('nakymaKaynti').hidden = n !== 'kaynti'; $('alapalkki').hidden = n !== 'kaynti';
+  if (n === 'asemat') renderAsemat(); else renderKaynti();
+  window.scrollTo(0, 0);
+}
+function renderAsemat() {
+  document.querySelectorAll('[data-a-k]').forEach(el => { el.value = A[el.dataset.aK] || ''; });
+  const k = K();
+  $('kesken').innerHTML = k ? `<div class="kortti" style="border-color:var(--havu)"><h2>Keskeneräinen käynti</h2>
+    <p style="margin:0 0 4px"><b>${esc(k.asema.nimi)}</b> · ${pvmFi(k.pvm)}</p>
+    ${lahettamatta() ? '<div class="varo">Käyntiä ei ole lähetetty.</div>' : '<p class="mut">Lähetetty. Merkitse valmiiksi, kun käynti on tehty.</p>'}
+    <div class="napit"><button class="p" data-x="jatka">Jatka käyntiä</button></div></div>` : '';
+  const q = ($('haku').value || '').toLowerCase().trim();
+  $('haku').hidden = A.asemat.length < 8;
+  const lista = A.asemat.filter(a => !q || [a.nimi, a.numero, a.osoite, a.paikkakunta].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => a.nimi.localeCompare(b.nimi, 'fi'));
+  $('asemaLista').innerHTML = !A.asemat.length
+    ? '<p class="mut" style="margin-top:0">Ei vielä asemia. Lisää asema tai tuo asemalista tiedostosta.</p>'
+    : lista.map(a => { const h = A.historia[a.id], av = avoimet(h).length;
+      return `<div class="asema"><div><div class="nm">${esc(a.nimi)}${a.numero ? ` <span class="mut">#${esc(a.numero)}</span>` : ''}</div>
+        <div class="tiedot">${esc([a.osoite, a.paikkakunta].filter(Boolean).join(', '))}</div>
+        <div class="tiedot">${h ? 'Edellinen käynti ' + pvmFi(h.pvm) + (av ? ` <span class="avoin">${av} avoinna</span>` : ' · ei avoimia') : 'Ei aiempia käyntejä'}</div></div>
+        <div></div><div class="rivi2"><button class="p" data-x="aloita" data-id="${esc(a.id)}">${k && k.asemaId === a.id ? 'Jatka käyntiä' : 'Aloita käynti'}</button>
+        <button class="s" data-x="muokkaa" data-id="${esc(a.id)}" style="flex:0 0 auto" aria-label="Muokkaa asemaa">✎</button></div></div>`; }).join('') || '<p class="mut">Ei hakua vastaavia asemia.</p>';
+}
+const tilaLaskuri = o => { const k = K(); let t = 0, p = 0; o.kohdat.forEach(x => { const v = k.kohdat[x.key]; if (v && v.tila) { t++; if (v.tila === 'poikkeama') p++; } }); return { t, p, n: o.kohdat.length }; };
+const mic = p => SANELU_OK ? `<button type="button" class="mic" data-mic="${esc(p)}" title="Sanele" aria-label="Sanele" aria-pressed="false">🎤</button>` : '';
+const ta = (p, v, ph, rivit, cls) => `<div class="sanelu"><textarea data-k="${esc(p)}" rows="${rivit || 2}"${cls ? ` class="${cls}"` : ''} placeholder="${esc(ph || '')}">${esc(v)}</textarea>${mic(p)}<div class="vali" data-vali="${esc(p)}"></div></div>`;
+function kohtaHtml(x) {
+  const v = K().kohdat[x.key] || { tila: '', huom: '' };
+  return `<div class="kohta" data-kohta="${x.key}"><div class="nm">${esc(x.nimi)}<span class="kk" data-kk="${x.key}"></span></div>
+    <div class="tilat" role="group" aria-label="${esc(x.nimi)}">${Object.entries(TILA_NIMI).map(([t, n]) => `<button type="button" data-t="${t}" data-key="${x.key}" class="${v.tila === t ? 'on' : ''}" aria-pressed="${v.tila === t}">${t === 'korjattu' ? 'Korjattu' : n}</button>`).join('')}</div>
+    <div class="lisa" data-lisa="${x.key}"${v.tila === 'poikkeama' || v.tila === 'korjattu' || v.huom ? '' : ' hidden'}>
+      ${ta(`kohdat.${x.key}.huom`, v.huom, v.tila === 'korjattu' ? 'Mitä tehtiin?' : 'Mikä on vialla, missä?')}
+      <div class="kuvaRivi"><button class="s" data-kuva="${x.key}">📷 Kuva</button><span class="mut" data-km="${x.key}"></span></div>
+    </div></div>`;
+}
+function renderKaynti() {
+  const k = K(); if (!k) { nayta('asemat'); return; }
+  const kausiOsiot = OSIOT.filter(o => osioKaudella(o, k.kausi)), muut = OSIOT.filter(o => !osioKaudella(o, k.kausi));
+  const osioHtml = (o, off) => { const c = tilaLaskuri(o);
+    return `<details class="osio${off ? ' kausiOff' : ''}" data-osio="${o.id}"${off ? '' : ' open'}><summary><span class="nuoli">▸</span> ${esc(o.nimi)}<span class="tila" data-ot="${o.id}">${osioTilaTeksti(c)}</span></summary><div class="sis">
+      <button class="s kaikkiOk" data-kaikkiok="${o.id}">✓ Muut kohdat kunnossa</button>
+      ${o.kohdat.map(kohtaHtml).join('')}
+      <div class="osioHuom"><label class="k">Lisätietoa: ${esc(o.nimi.toLowerCase())}</label>${ta(`osioHuom.${o.id}`, k.osioHuom[o.id] || '', 'Havainnot, joille ei ole omaa kohtaa')}</div>
+    </div></details>`; };
+  $('nakymaKaynti').innerHTML = `
+  <section class="kortti">
+    <div class="kayntiOts"><h2>${esc(k.asema.nimi)}</h2><span class="mut">${esc([k.asema.numero && '#' + k.asema.numero, k.asema.osoite, k.asema.paikkakunta].filter(Boolean).join(' · '))}</span></div>
+    <div class="kentat" style="margin-top:10px">
+      <label class="k">Käynnin päivä<input type="date" data-kk-pvm value="${esc(k.pvm)}"></label>
+      <label class="k">Kävijä<input value="${esc([k.tekija, k.yritys].filter(Boolean).join(', '))}" disabled></label>
+    </div>
+    <div class="mut" style="margin:10px 0 4px">Vuodenaika</div>
+    <div class="seg" data-kausi>${KAUDET.map(x => `<button type="button" data-kausi="${x}" class="${k.kausi === x ? 'on' : ''}">${x.charAt(0).toUpperCase() + x.slice(1)}</button>`).join('')}</div>
+  </section>
+  ${k.aiemmat.length ? `<section class="kortti" style="border-color:var(--pk)">
+    <h2>Edellisen käynnin avoimet poikkeamat (${k.aiemmat.length})</h2>
+    <p class="mut" style="margin-top:-4px">Merkitse jokaiselle, miltä tilanne näyttää nyt.</p>
+    ${k.aiemmat.map((x, i) => `<div class="kohta aiempi"><div class="nm">${esc(x.nimi)}<span class="kk">${esc(x.osio)}</span></div>
+      <div class="edel">Havaittu ${pvmFi(x.havaittu)}${x.huom ? ': ' + esc(x.huom) : ''}</div>
+      <div class="tilat aiempi">${Object.entries(SEUR_NIMI).map(([t, n]) => `<button type="button" data-st="${t}" data-i="${i}" class="${x.tila === t ? 'on' : ''}" aria-pressed="${x.tila === t}">${n}</button>`).join('')}</div>
+      <div class="lisa" data-lisaai="${i}"${x.tila && x.tila !== 'korjattu' || x.huomNyt ? '' : ' hidden'}>${ta(`aiemmat.${i}.huomNyt`, x.huomNyt, 'Tilanne nyt')}</div></div>`).join('')}
+  </section>` : ''}
+  <div class="info" style="margin-top:0">Tarkastuskohdat ovat luonnos (build ${BUILD}). Ne tarkentuvat ennen käyttöönottoa.</div>
+  ${kausiOsiot.map(o => osioHtml(o, false)).join('')}
+  ${muut.length ? `<button class="l" data-x="muutOsiot" style="margin-bottom:12px">${naytaKaikkiOsiot ? 'Piilota muiden vuodenaikojen osiot' : `Näytä muiden vuodenaikojen osiot (${muut.length})`}</button>
+    ${naytaKaikkiOsiot ? muut.map(o => osioHtml(o, true)).join('') : ''}` : ''}
+  <section class="kortti"><h2>Kuvat</h2>
+    <div class="napit" style="margin-top:0"><button class="s" data-kuva="muu">📷 Ota kuva</button><button class="s" data-galleria="muu">🖼 Valitse kuvista</button></div>
+    <div class="kuvat" id="kuvaLista"></div></section>
+  <section class="kortti"><h2>Käyntimuistio <span class="mut" id="muistioTila" style="font-weight:600"></span></h2>
+    <p class="mut" style="margin-top:-4px">Liitä ChatGPT:n tai muistion teksti, tai sanele. Kulkee lähetyksessä sellaisenaan.</p>
+    ${ta('muistio', k.muistio, 'Käynnin muistiinpanot, sovitut asiat, avoimet kysymykset …', 8, 'muistio')}
+    <div class="napit"><button class="s" data-x="liita">📋 Liitä leikepöydältä</button></div></section>
+  <section class="kortti"><h2>Käynnin päättäminen</h2>
+    <div id="yhteenveto"></div>
+    <div class="napit"><button class="p" data-x="laheta">📤 Lähetä käynti</button></div>
+    <div class="napit"><button class="s" data-x="valmis">✓ Merkitse käynti valmiiksi</button><button class="v" data-x="hylkaa">Hylkää käynti</button></div>
+  </section>`;
+  naytaMuistioTila(); renderKuvat().then(paivitaKuvaMaarat); paivitaYhteenveto(); paivitaPalkki(); naytaSanelu();
+}
+const osioTilaTeksti = c => `${c.t}/${c.n}${c.p ? ` · <b>${c.p} poikkeama${c.p > 1 ? 'a' : ''}</b>` : ''}`;
+function paivitaOsio(id) { const o = OSIOT.find(x => x.id === id), el = document.querySelector(`[data-ot="${id}"]`); if (o && el) el.innerHTML = osioTilaTeksti(tilaLaskuri(o)); paivitaYhteenveto(); }
+function yhteenveto() {
+  const k = K(), v = Object.values(k.kohdat), osiot = OSIOT.filter(o => osioKaudella(o, k.kausi)), n = osiot.reduce((s, o) => s + o.kohdat.length, 0);
+  const tark = osiot.reduce((s, o) => s + o.kohdat.filter(x => k.kohdat[x.key] && k.kohdat[x.key].tila).length, 0);
+  return { n, tark, poik: v.filter(x => x.tila === 'poikkeama').length, korj: v.filter(x => x.tila === 'korjattu').length,
+    aiemmatAuki: k.aiemmat.filter(x => !x.tila).length, aiemmatKorj: k.aiemmat.filter(x => x.tila === 'korjattu').length };
+}
+function paivitaYhteenveto() {
+  const el = $('yhteenveto'); if (!el || !K()) return; const y = yhteenveto();
+  el.innerHTML = `<p style="margin:0">Tarkastettu <b>${y.tark}/${y.n}</b> kohtaa · uusia poikkeamia <b>${y.poik}</b> · korjattu paikalla <b>${y.korj}</b>${K().aiemmat.length ? ` · aiemmista korjattu <b>${y.aiemmatKorj}/${K().aiemmat.length}</b>` : ''}</p>
+    ${y.aiemmatAuki ? `<div class="varo">${y.aiemmatAuki} aiempaa poikkeamaa ilman merkintää. Ne siirtyvät seuraavalle käynnille avoimina.</div>` : ''}
+    ${lahettamatta() ? '' : `<p class="mut">✓ Lähetetty klo ${new Date(K().lahetetty).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}.</p>`}`;
+}
+function paivitaPalkki() {
+  const k = K(); if (!k) return; $('palkkiNimi').textContent = k.asema.nimi;
+  const y = yhteenveto(); $('palkkiTila').textContent = `${y.tark}/${y.n} tarkastettu${y.poik ? ' · ' + y.poik + ' poikkeamaa' : ''}${lahettamatta() ? '' : ' · lähetetty'}`;
+}
+function naytaMuistioTila() { const el = $('muistioTila'); if (!el || !K()) return; const n = K().muistio.split('\n').filter(r => r.trim()).length; el.textContent = n ? `· ${n} ${n === 1 ? 'rivi' : 'riviä'}` : ''; }
+async function renderKuvat() {
+  const el = $('kuvaLista'); if (!el) return; const kuvat = await kaynninKuvat();
+  el.innerHTML = kuvat.length ? kuvat.map(x => `<figure data-kuvaid="${esc(x.id)}"><img src="${x.data}" alt="${esc(x.selite)}"><figcaption>${esc(x.selite)}${x.teksti ? ': ' + esc(x.teksti) : ''}</figcaption></figure>`).join('') : '<p class="mut" style="grid-column:1/-1;margin:0">Ei kuvia. Kohdan 📷-nappi liittää kuvan suoraan poikkeamaan.</p>';
+}
+async function paivitaKuvaMaarat() {
+  const kuvat = await kaynninKuvat(), m = {}; kuvat.forEach(x => { m[x.kohta] = (m[x.kohta] || 0) + 1; });
+  document.querySelectorAll('[data-km]').forEach(el => { const n = m[el.dataset.km] || 0; el.textContent = n ? `${n} kuva${n > 1 ? 'a' : ''}` : ''; });
+  document.querySelectorAll('[data-kk]').forEach(el => { const n = m[el.dataset.kk] || 0; el.textContent = n ? `📷 ${n}` : ''; });
+}
+
+// ---------- toiminnot ----------
+async function aloitaKaynti(asemaId) {
+  const a = A.asemat.find(x => x.id === asemaId); if (!a) return;
+  if (K() && K().asemaId === asemaId) { nayta('kaynti'); return; }
+  if (K()) {
+    const r = await dialogi('Toinen käynti kesken', `Asemalla <b>${esc(K().asema.nimi)}</b> on keskeneräinen käynti${lahettamatta() ? ', jota ei ole lähetetty' : ''}. Kerrallaan voi olla vain yksi käynti.`, ['Jatka keskeneräistä', 'Peruuta']);
+    if (r === 0) nayta('kaynti'); return;
+  }
+  if (!A.tekija.trim()) { await dialogi('Kävijän nimi puuttuu', 'Kirjoita ensin nimesi ja yrityksesi Kävijä-kohtaan. Ne tulevat jokaiseen käyntiin.', ['OK']); const el = document.querySelector('[data-a-k="tekija"]'); if (el) el.focus(); return; }
+  const d = new Date();
+  A.kaynti = { id: uid(), asemaId: a.id, asema: { ...a }, pvm: tanaan(), kausi: kausiKuusta(d.getMonth() + 1), tekija: A.tekija.trim(), yritys: A.yritys.trim(),
+    kohdat: {}, osioHuom: {}, aiemmat: avoimet(A.historia[a.id]), muistio: '', aloitettu: Date.now(), lahetetty: 0, muutettu: 0 };
+  naytaKaikkiOsiot = false; tallenna(false); nayta('kaynti');
+}
+function asetaTila(key, t) {
+  const k = K(), v = k.kohdat[key] || { tila: '', huom: '' }, kk = KOHTA[key];
+  v.tila = v.tila === t ? '' : t; v.nimi = kk ? kk.nimi : (v.nimi || key); v.osio = kk ? kk.osio : (v.osio || '');
+  if (!v.tila && !v.huom) delete k.kohdat[key]; else k.kohdat[key] = v;
+  document.querySelectorAll(`.tilat button[data-key="${key}"]`).forEach(b => { const on = b.dataset.t === v.tila; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  const lisa = document.querySelector(`[data-lisa="${key}"]`);
+  if (lisa) { const nayt = v.tila === 'poikkeama' || v.tila === 'korjattu' || !!v.huom; lisa.hidden = !nayt;
+    const tx = lisa.querySelector('textarea'); if (tx) tx.placeholder = v.tila === 'korjattu' ? 'Mitä tehtiin?' : 'Mikä on vialla, missä?'; }
+  tallenna(); paivitaOsio(key.split(':')[0]);
+}
+async function laheta() {
+  const k = K(); if (!k) return;
+  const kuvat = await kaynninKuvat();
+  const blob = new Blob([JSON.stringify({ tyokalu: TYOKALU, build: BUILD, schemaVersion: SCHEMA, lahetetty: new Date().toISOString(), kaynti: k, kuvat })], { type: 'application/json' });
+  const fname = `Asemakierto_${nimiOsa(k.asema.numero ? k.asema.numero + '_' + k.asema.nimi : k.asema.nimi) || 'asema'}_${k.pvm}_${kello()}_${nimiOsa(k.tekija) || 'kavija'}.json`;
+  if (VASTAANOTTAJA && (await dialogi('Lähetä käynti', `Valitse jakovalikosta sähköposti ja lähetä osoitteeseen<br><b>${esc(VASTAANOTTAJA)}</b>`, ['Jatka', 'Peruuta'])) !== 0) return;
+  if (!(await jaaTaiLataa(blob, fname, 'application/json'))) return;
+  k.lahetetty = Date.now(); if (k.muutettu > k.lahetetty) k.muutettu = k.lahetetty; tallenna(false); paivitaYhteenveto(); paivitaPalkki();
+  const r = await dialogi('Käynti lähetetty?', `Tiedosto <b>${esc(fname)}</b> (${Math.max(1, Math.round(blob.size / 1024))} kt, ${kuvat.length} kuvaa).<br><br>Merkitäänkö käynti valmiiksi? Avoimet poikkeamat siirtyvät seuraavalle käynnille.`, ['Merkitse valmiiksi', 'Jatka muokkausta']);
+  if (r === 0) await merkitseValmiiksi(true);
+}
+async function merkitseValmiiksi(varmistettu) {
+  const k = K(); if (!k) return;
+  if (!varmistettu) {
+    if (lahettamatta()) { const r = await dialogi('Käyntiä ei ole lähetetty', 'Lähetä käynti ennen kuin merkitset sen valmiiksi. Kuvat poistuvat puhelimesta, kun käynti merkitään valmiiksi.', ['📤 Lähetä ensin', 'Merkitse silti', 'Peruuta']);
+      if (r === 0) { await laheta(); return; } if (r !== 1) return; }
+    else if ((await dialogi('Merkitse valmiiksi', `Käynti asemalla <b>${esc(k.asema.nimi)}</b> päätetään. Avoimet poikkeamat siirtyvät seuraavalle käynnille.`, ['Merkitse valmiiksi', 'Peruuta'])) !== 0) return;
+  }
+  lopetaSanelu(); A.historia[k.asemaId] = JSON.parse(JSON.stringify(k)); A.kaynti = null; await tyhjennaKuvat(); tallenna(false); nayta('asemat');
+}
+async function hylkaaKaynti() {
+  const k = K(); if (!k) return;
+  if ((await dialogi('Hylkää käynti', `Käynnin tiedot ja kuvat asemalta <b>${esc(k.asema.nimi)}</b> poistetaan tästä puhelimesta${lahettamatta() ? '. Käyntiä <b>ei ole lähetetty</b>' : ''}. Edellinen käynti säilyy.`, ['Hylkää', 'Peruuta'])) !== 0) return;
+  lopetaSanelu(); A.kaynti = null; await tyhjennaKuvat(); tallenna(false); nayta('asemat');
+}
+async function muokkaaAsemaa(id) {
+  const a = id ? A.asemat.find(x => x.id === id) : { id: '', nimi: '', numero: '', osoite: '', paikkakunta: '' }; if (!a) return;
+  const r = await dialogi(id ? 'Muokkaa asemaa' : 'Uusi asema', `<div style="display:grid;gap:10px">
+    <label class="k">Aseman nimi<input id="aNimi" value="${esc(a.nimi)}"></label>
+    <label class="k">Asemanumero<input id="aNro" value="${esc(a.numero)}" inputmode="numeric"></label>
+    <label class="k">Osoite<input id="aOs" value="${esc(a.osoite)}"></label>
+    <label class="k">Paikkakunta<input id="aPk" value="${esc(a.paikkakunta)}"></label></div>`, id ? ['Tallenna', 'Peruuta', 'Poista asema'] : ['Lisää', 'Peruuta']);
+  if (r === 2) {
+    if (K() && K().asemaId === id) { dialogi('Asemaa ei voi poistaa', 'Asemalla on keskeneräinen käynti. Päätä tai hylkää käynti ensin.', ['OK']); return; }
+    if ((await dialogi('Poista asema', `Poistetaanko <b>${esc(a.nimi)}</b> ja sen käyntihistoria tästä puhelimesta? Lähetetyt tiedostot säilyvät.`, ['Poista', 'Peruuta'])) === 0) { A.asemat = A.asemat.filter(x => x.id !== id); delete A.historia[id]; tallenna(false); renderAsemat(); }
+    return;
+  }
+  if (r !== 0) return;
+  const uusi = normAsema({ id: a.id || uid(), nimi: $('aNimi').value, numero: $('aNro').value, osoite: $('aOs').value, paikkakunta: $('aPk').value });
+  if (!uusi.nimi) { dialogi('Nimi puuttuu', 'Asema tarvitsee nimen.', ['OK']); return; }
+  if (id) Object.assign(a, uusi); else A.asemat.push(uusi);
+  tallenna(false); renderAsemat();
+}
+function lisaaTaiYhdista(x) {  // asemanumero tai nimi+paikkakunta yhdistää samaksi asemaksi
+  const a = normAsema(x); if (!a.nimi) return null;
+  const sama = A.asemat.find(y => (a.numero && y.numero === a.numero) || (!a.numero && y.nimi.toLowerCase() === a.nimi.toLowerCase() && y.paikkakunta.toLowerCase() === a.paikkakunta.toLowerCase()));
+  if (sama) { ['nimi', 'numero', 'osoite', 'paikkakunta'].forEach(k => { if (a[k]) sama[k] = a[k]; }); return { asema: sama, uusi: false }; }
+  A.asemat.push(a); return { asema: a, uusi: true };
+}
+function lueCsv(teksti) {
+  const rivit = teksti.replace(/^\uFEFF/, '').split(/\r?\n/).filter(r => r.trim()); if (!rivit.length) return [];
+  const erotin = (rivit[0].match(/;/g) || []).length >= (rivit[0].match(/,/g) || []).length ? ';' : ',';
+  const solut = r => r.split(erotin).map(s => s.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"'));
+  const ots = solut(rivit[0]).map(s => s.toLowerCase());
+  const ix = n => ots.findIndex(o => o.startsWith(n));
+  const iN = ix('nimi') >= 0 ? ix('nimi') : ix('asema'), iNro = ix('nro') >= 0 ? ix('nro') : ix('numero'), iO = ix('osoite'), iP = ix('paikka') >= 0 ? ix('paikka') : ix('kaupunki');
+  const onOts = iN >= 0;
+  return rivit.slice(onOts ? 1 : 0).map(r => { const c = solut(r); return onOts ? { nimi: c[iN], numero: iNro >= 0 ? c[iNro] : '', osoite: iO >= 0 ? c[iO] : '', paikkakunta: iP >= 0 ? c[iP] : '' } : { nimi: c[0], numero: c[1] || '', osoite: c[2] || '', paikkakunta: c[3] || '' }; });
+}
+
+// ---------- tapahtumat ----------
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.aK) { A[el.dataset.aK] = el.value; tallenna(false); return; }
+  if (el.id === 'haku') { renderAsemat(); return; }
+  if (el.dataset.k && K()) {
+    const p = el.dataset.k; setP(K(), p, el.value);
+    const m = /^kohdat\.([^.]+)\.huom$/.exec(p);
+    if (m) { const v = K().kohdat[m[1]]; const kk = KOHTA[m[1]]; if (kk) { v.nimi = kk.nimi; v.osio = kk.osio; } if (v.tila === undefined) v.tila = ''; }
+    tallenna(); if (p === 'muistio') naytaMuistioTila(); return;
+  }
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.hasAttribute('data-kk-pvm') && K()) { if (/^\d{4}-\d{2}-\d{2}$/.test(el.value)) { K().pvm = el.value; const uk = kausiKuusta(+el.value.slice(5, 7)); if (uk !== K().kausi) { K().kausi = uk; tallenna(); renderKaynti(); return; } tallenna(); } }
+});
+document.addEventListener('click', async e => {
+  const mb = e.target.closest('button[data-mic]');
+  if (mb) { e.preventDefault(); const p = mb.dataset.mic; if (san && san.paalla && san.path === p) lopetaSanelu(); else aloitaSaneluNapista(p); return; }
+  const tb = e.target.closest('.tilat button[data-t]'); if (tb) { asetaTila(tb.dataset.key, tb.dataset.t); return; }
+  const sb = e.target.closest('.tilat button[data-st]');
+  if (sb) { const x = K().aiemmat[+sb.dataset.i]; x.tila = x.tila === sb.dataset.st ? '' : sb.dataset.st;
+    sb.parentElement.querySelectorAll('button').forEach(b => { const on = b.dataset.st === x.tila; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    const l = document.querySelector(`[data-lisaai="${sb.dataset.i}"]`); if (l) l.hidden = !(x.tila && x.tila !== 'korjattu' || x.huomNyt);
+    tallenna(); paivitaYhteenveto(); return; }
+  const kb = e.target.closest('[data-kausi] button[data-kausi]'); if (kb) { K().kausi = kb.dataset.kausi; tallenna(); lopetaSanelu(); renderKaynti(); return; }
+  const ok = e.target.closest('button[data-kaikkiok]');
+  if (ok) { const o = OSIOT.find(x => x.id === ok.dataset.kaikkiok); o.kohdat.forEach(x => { const v = K().kohdat[x.key]; if (!v || !v.tila) asetaTila(x.key, 'ok'); }); return; }
+  const kv = e.target.closest('button[data-kuva],button[data-galleria]');
+  if (kv) { kuvaKohde = kv.dataset.kuva || kv.dataset.galleria; $(kv.dataset.kuva ? 'kuvaInput' : 'kuvaGalleria').click(); return; }
+  const fig = e.target.closest('figure[data-kuvaid]'); if (fig) { muokkaaKuvaa(fig.dataset.kuvaid); return; }
+  const b = e.target.closest('button[data-x]'); if (!b) return;
+  const x = b.dataset.x;
+  if (x === 'aloita') aloitaKaynti(b.dataset.id);
+  else if (x === 'muokkaa') muokkaaAsemaa(b.dataset.id);
+  else if (x === 'jatka') nayta('kaynti');
+  else if (x === 'muutOsiot') { naytaKaikkiOsiot = !naytaKaikkiOsiot; lopetaSanelu(); renderKaynti(); }
+  else if (x === 'liita') liitaMuistio();
+  else if (x === 'laheta') laheta();
+  else if (x === 'valmis') merkitseValmiiksi(false);
+  else if (x === 'hylkaa') hylkaaKaynti();
+});
+async function muokkaaKuvaa(id) {
+  const x = (await kaynninKuvat()).find(y => y.id === id); if (!x) return;
+  const r = await dialogi(x.selite, `<img src="${x.data}" alt=""><label class="k" style="margin-top:10px">Kuvateksti<input id="kuvaTeksti" value="${esc(x.teksti)}"></label>`, ['Tallenna', 'Sulje', 'Poista kuva']);
+  if (r === 0) { x.teksti = $('kuvaTeksti').value; await talletaKuva(x); tallenna(); renderKuvat(); }
+  else if (r === 2 && (await dialogi('Poista kuva', 'Poistetaanko kuva?', ['Poista', 'Peruuta'])) === 0) { await poistaKuva(id); tallenna(); await renderKuvat(); paivitaKuvaMaarat(); }
+}
+$('lisaaAsema').onclick = () => muokkaaAsemaa(null);
+$('takaisin').onclick = () => nayta('asemat');
+$('kuvaPika').onclick = () => { kuvaKohde = 'muu'; $('kuvaInput').click(); };
+$('laheta').onclick = laheta;
+['kuvaInput', 'kuvaGalleria'].forEach(id => $(id).onchange = async e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) await lisaaKuvat(f); });
+$('tuoAsemat').onclick = () => $('tuoInput').click();
+$('tuoInput').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { const t = await lueTeksti(f); let lista;
+    if (/^\s*[\[{]/.test(t)) { const d = JSON.parse(t); lista = Array.isArray(d) ? d : d.asemat; if (!Array.isArray(lista)) throw new Error('Tiedostossa ei ole asemalistaa.'); }
+    else lista = lueCsv(t);
+    let u = 0, p = 0; lista.forEach(x => { const r = x && lisaaTaiYhdista(x); if (r) r.uusi ? u++ : p++; });
+    if (!u && !p) throw new Error('Tiedostosta ei löytynyt asemia. CSV:ssä tarvitaan sarake "nimi".');
+    tallenna(false); renderAsemat(); dialogi('Asemalista tuotu', `${u} uutta asemaa${p ? `, ${p} päivitetty` : ''}.`, ['OK']); }
+  catch (err) { dialogi('Tuonti epäonnistui', esc(err.message || String(err)), ['OK']); }
+};
+$('avaaKaynti').onclick = () => $('avaaInput').click();
+$('avaaInput').onchange = async e => {  // toisen kävijän lähettämä käynti → aseman edelliseksi käynniksi
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { const d = JSON.parse(await lueTeksti(f)); if (d.tyokalu !== TYOKALU || !d.kaynti || !d.kaynti.asemaId) throw new Error('Tiedosto ei ole asemakierron käynti.');
+    const k = normKaynti(d.kaynti), r = lisaaTaiYhdista(k.asema); if (!r) throw new Error('Tiedostossa ei ole aseman tietoja.');
+    k.asemaId = r.asema.id; k.asema = { ...r.asema };
+    const vanha = A.historia[r.asema.id];
+    if (vanha && vanha.pvm > k.pvm && (await dialogi('Vanhempi käynti', `Puhelimessa on jo uudempi käynti (${pvmFi(vanha.pvm)}) kuin tiedostossa (${pvmFi(k.pvm)}). Korvataanko?`, ['Korvaa', 'Peruuta'])) !== 0) { tallenna(false); renderAsemat(); return; }
+    A.historia[r.asema.id] = k; tallenna(false); renderAsemat();
+    dialogi('Käynti avattu', `<b>${esc(r.asema.nimi)}</b>: käynti ${pvmFi(k.pvm)} (${esc([k.tekija, k.yritys].filter(Boolean).join(', '))}). ${avoimet(k).length} avointa poikkeamaa siirtyy seuraavalle käynnille.`, ['OK']); }
+  catch (err) { dialogi('Avaus epäonnistui', esc(err.message || String(err)), ['OK']); }
+};
+async function liitaMuistio() {
+  let t = null; try { if (navigator.clipboard && navigator.clipboard.readText) t = await navigator.clipboard.readText(); } catch (e) {}
+  const el = () => document.querySelector('textarea[data-k="muistio"]');
+  if (t == null || !t.trim()) { await dialogi('Liitä muistio', t == null ? 'Selain ei antanut lukea leikepöytää. Paina muistiokenttää pitkään ja valitse <b>Liitä</b>.' : 'Leikepöytä on tyhjä. Kopioi ensin teksti ChatGPT:stä tai muistiosta.', ['OK']); const x = el(); if (x) x.focus(); return; }
+  t = t.replace(/\r\n?/g, '\n').replace(/^\n+|\s+$/g, '');
+  const vanha = K().muistio.replace(/\s+$/, ''); K().muistio = vanha ? vanha + '\n\n' + t : t;
+  tallenna(); naytaMuistioTila(); const x = el(); if (x) { x.value = K().muistio; x.scrollTop = x.scrollHeight; }
+}
+
+// ---------- sanelu (sama kuin Kohdekierto 261019.1) ----------
+// Selaimen puheentunnistus (Web Speech API), fi-FI. Puhe käsitellään Applen / Googlen palvelussa kuten näppäimistösanelussa.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SANELU_OK = !!SR && window.isSecureContext !== false;
+const SANELU_INFO = AVAIN + '_saneluinfo';
+let san = null;
+function lisaaSanelu(s, teksti) {
+  teksti = String(teksti || '').replace(/\s+/g, ' ').trim(); const k = K(); if (!teksti || !k || k.id !== s.kayntiId) return;
+  let v = String(getP(k, s.path) ?? '');
+  if (s.uusiRivi) { if (v && !/\n$/.test(v)) v += '\n'; s.uusiRivi = false; } else if (v && !/\s$/.test(v)) v += ' ';
+  if (!v || /\n$/.test(v)) teksti = teksti.charAt(0).toLocaleUpperCase('fi-FI') + teksti.slice(1);
+  v += teksti; setP(k, s.path, v);
+  const m = /^kohdat\.([^.]+)\.huom$/.exec(s.path); if (m) { const kk = KOHTA[m[1]], o = k.kohdat[m[1]]; if (kk) { o.nimi = kk.nimi; o.osio = kk.osio; } if (o.tila === undefined) o.tila = ''; }
+  tallenna(); if (s.path === 'muistio') naytaMuistioTila();
+  const el = document.querySelector(`textarea[data-k="${s.path}"]`); if (el) { el.value = v; el.scrollTop = el.scrollHeight; }
+}
+function naytaVali() { document.querySelectorAll('[data-vali]').forEach(d => { d.textContent = ''; }); if (!san || !san.vali) return; const d = document.querySelector(`[data-vali="${san.path}"]`); if (d) d.textContent = san.vali; }
+function naytaSanelu() {
+  const on = san && san.paalla;
+  document.querySelectorAll('button[data-mic]').forEach(b => { const x = !!on && b.dataset.mic === san.path; b.classList.toggle('on', x); b.setAttribute('aria-pressed', x); b.textContent = x ? '⏹' : '🎤'; b.title = x ? 'Lopeta sanelu' : 'Sanele'; });
+  $('saneluPalkki').hidden = !on; naytaVali();
+}
+function kaynnistaTunnistus(s) {
+  if (san !== s || !s.paalla) return;
+  const rec = new SR(); s.rec = rec; s.viimeFinal = ''; s.kasitellyt = new Set(); s.aloitettu = Date.now();
+  rec.lang = 'fi-FI'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.onresult = e => { let vali = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i], t = r[0] ? r[0].transcript : '';
+      if (!r.isFinal) { vali += t; continue; } if (s.kasitellyt.has(i)) continue; s.kasitellyt.add(i);
+      const uusi = s.viimeFinal && t.startsWith(s.viimeFinal) ? t.slice(s.viimeFinal.length) : t;  // Androidin kasvava toisto
+      s.viimeFinal = t; s.virheet = 0; lisaaSanelu(s, uusi); }
+    s.vali = vali.trim(); if (san === s) naytaVali(); };
+  rec.onerror = e => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { lopetaSanelu(); dialogi('Mikrofoni ei ole käytössä', '<b>iPhone:</b> Asetukset → Safari → Mikrofoni → Salli, ja tarkista että Siri ja sanelu ovat päällä (Asetukset → Yleiset → Näppäimistö).<br><br><b>Android:</b> Chromen osoiterivin vasemmasta reunasta → Luvat → Mikrofoni → Salli.<br><br>Sillä välin voit sanella näppäimistön mikrofonista.', ['OK']); return; }
+    if (e.error === 'audio-capture') { lopetaSanelu(); dialogi('Mikrofonia ei saatu käyttöön', 'Mikrofoni voi olla toisen sovelluksen käytössä. Sulje se ja yritä uudelleen.', ['OK']); return; }
+    s.virheet = (s.virheet || 0) + 1; };
+  rec.onend = () => {
+    if (s.vali) { lisaaSanelu(s, s.vali); s.vali = ''; naytaVali(); }
+    if (san !== s || !s.paalla) return;
+    s.pikaloput = Date.now() - s.aloitettu < 1500 && !s.kasitellyt.size ? (s.pikaloput || 0) + 1 : 0;
+    if (s.virheet > 3 || s.pikaloput > 5) { lopetaSanelu(); dialogi('Sanelu katkesi', 'Puheentunnistus ei vastaa. Sanelu tarvitsee yleensä verkkoyhteyden. Kirjoita tai käytä näppäimistön mikrofonia.', ['OK']); return; }
+    setTimeout(() => kaynnistaTunnistus(s), 300); };
+  try { rec.start(); } catch (err) { setTimeout(() => { if (san === s && s.paalla) { try { rec.start(); } catch (e2) { lopetaSanelu(); } } }, 400); }
+}
+function aloitaSanelu(p) {
+  lopetaSanelu(); if (!K()) return;
+  const s = { path: p, kayntiId: K().id, paalla: true, rec: null, vali: '', viimeFinal: '', kasitellyt: new Set(), uusiRivi: true, virheet: 0, pikaloput: 0, aloitettu: 0, wl: null };
+  san = s; naytaSanelu(); kaynnistaTunnistus(s);
+  if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { if (san === s && s.paalla) s.wl = w; else w.release().catch(() => {}); }).catch(() => {});
+}
+function lopetaSanelu() { const s = san; if (!s) return; s.paalla = false; san = null; try { s.rec && s.rec.stop(); } catch (e) {} if (s.wl) { s.wl.release().catch(() => {}); s.wl = null; } naytaSanelu(); }
+async function aloitaSaneluNapista(p) {
+  let nahty = false; try { nahty = !!localStorage.getItem(SANELU_INFO); } catch (e) {}
+  if (!nahty) { await dialogi('Sanelu', 'Napauta 🎤 ja puhu. Teksti lisätään kentän loppuun. Lopeta napauttamalla ⏹.<br><br><b>Tietosuoja:</b> puhe käsitellään puhelimen puheentunnistuksessa (Apple tai Google) samoin kuin näppäimistön sanelussa. Kerro asiakkaalle, jos sanelet hänen kertomiaan asioita.<br><br>Napauta mikrofonia uudelleen aloittaaksesi.', ['Selvä']);
+    try { localStorage.setItem(SANELU_INFO, '1'); } catch (e) {} return; }
+  aloitaSanelu(p);
+}
+$('saneluPalkki').onclick = lopetaSanelu;
+document.addEventListener('visibilitychange', () => { if (document.hidden) lopetaSanelu(); });
+
+// ---------- PWA ----------
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+const verkko = () => { $('verkko').textContent = navigator.onLine ? '' : 'ei verkkoa – toimii silti'; };
+window.addEventListener('online', verkko); window.addEventListener('offline', verkko); verkko();
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+window.addEventListener('beforeunload', e => { if (lahettamatta()) { e.preventDefault(); e.returnValue = ''; } });
+nayta(K() ? 'kaynti' : 'asemat');
+if (latausVirhe) dialogi('Tallennettuja tietoja ei voitu lukea', 'Puhelimeen tallennettu asemalista tai käynti on vioittunut. Lähetetyt käynnit ovat tallessa sähköpostissa. Voit aloittaa alusta ja avata edellisen käynnin tiedostosta.', ['Aloita alusta', 'Peruuta']).then(r => { if (r === 0) { latausVirhe = false; A = uusiTila(); tallenna(false); nayta('asemat'); } });
+window.__AK = { tila: () => A, kaynninKuvat, avoimet, OSIOT };
+})();
+</script>
+</body>
+</html>
